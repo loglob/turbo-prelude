@@ -1,7 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 
 -- | The prelude sans anything defined in this package
-module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take) where
+module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take, imap) where
 
 import Control.Applicative as Exp (Alternative (..), Applicative (..), liftA, liftA3)
 import Control.Lens as Exp
@@ -69,7 +69,7 @@ import Control.Monad as Exp
   )
 import Data.Bifoldable as Exp (Bifoldable (..))
 import Data.Bifunctor as Exp (Bifunctor (..))
-import Data.Bitraversable as Exp (Bitraversable (..))
+import Data.Bitraversable as Exp (Bitraversable (..), bimapM)
 import Data.Bool as Exp (Bool (..), bool, not, otherwise, (&&), (||))
 import Data.Char as Exp (Char, chr, ord)
 import Data.Either as Exp (Either (..), either, lefts, partitionEithers, rights)
@@ -120,6 +120,7 @@ import Data.List as Exp
     dropWhileEnd,
     elemIndex,
     elemIndices,
+    filter,
     findIndex,
     findIndices,
     group,
@@ -353,3 +354,9 @@ splitAt = L.genericSplitAt
 
 take :: (Integral i) => i -> [a] -> [a]
 take = L.genericTake
+
+imap :: (Integral i) => (i -> a -> b) -> [a] -> [b]
+imap f = m 0
+  where
+    m _ [] = []
+    m i (x : xs) = f i x : m (i + 1) xs
