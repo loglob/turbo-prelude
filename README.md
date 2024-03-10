@@ -11,19 +11,22 @@ source-repository-package
 
 packages: ./[YOUR PROJECT HERE].cabal
 ```
-Then edit your `.cabal` file to include:
+Then edit your `*.cabal` file to include:
+```yml
+build-depends:
+	base,
+	turbo-hs
+mixins:
+	base hiding (Prelude),
+	turbo-prelude (Turbo.Prelude as Prelude)
+```
+I strongly recommend also adding these extensions:
 ```yml
 default-extensions:
-	NoImplicitPrelude
-
-build-depends:
-	turbo-hs
+	BlockArguments,
+	LambdaCase,
+	TupleSections
 ```
-and start each of your modules with
-```hs
-import Turbo.Prelude
-```
-I strongly recommend also enabling the extensions `BlockArguments`, `LambdaCase` and `TupleSections`.
 
 ## Custom Operators
 The prelude redefines a lot of Haskell's default operators.
