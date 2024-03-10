@@ -247,6 +247,7 @@ import GHC.Real as Exp
     realToFrac,
     (^),
     (^^),
+    (%)
   )
 import GHC.Show as Exp
   ( Show (..),
@@ -340,14 +341,14 @@ import System.IO as Exp
   )
 import Text.Printf as Exp (hPrintf, printf)
 
-drop :: Integer -> [a] -> [a]
+drop :: Integral i => i -> [a] -> [a]
 drop = L.genericDrop
 
-replicate :: Integer -> a -> [a]
+replicate :: Integral i => i -> a -> [a]
 replicate = L.genericReplicate
 
-splitAt :: Integer -> [a] -> ([a], [a])
+splitAt :: Integral i => i -> [a] -> ([a], [a])
 splitAt = L.genericSplitAt
 
-take :: Integer -> [a] -> [a]
+take :: Integral i => i -> [a] -> [a]
 take = L.genericTake
