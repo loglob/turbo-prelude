@@ -2,6 +2,29 @@
 An alternate prelude and util library for Haskell.
 Its primary feature is an unorthodox redefinition of a lot of Haskell's operators (see below).
 
+## Including
+To include the prelude, create a `cabal.project` file in your project root directory containing:
+```yml
+source-repository-package
+    type: git
+    location: https://github.com/loglob/turbo-hs
+
+packages: ./[YOUR PROJECT HERE].cabal
+```
+Then edit your `.cabal` file to include:
+```yml
+default-extensions:
+	NoImplicitPrelude
+
+build-depends:
+	turbo-hs
+```
+and start each of your modules with
+```hs
+import Turbo.Prelude
+```
+I strongly recommend also enabling the extensions `BlockArguments`, `LambdaCase` and `TupleSections`.
+
 ## Custom Operators
 The prelude redefines a lot of Haskell's default operators.
 This is mostly for ironing out inconsistencies in the default Prelude, i.e. why is `<$` included while `$>` is not.
