@@ -28,7 +28,6 @@ library
         Turbo.RootPrelude
     default-extensions:
         BlockArguments
-        KindSignatures
         LambdaCase
         NoImplicitPrelude
         TemplateHaskell
