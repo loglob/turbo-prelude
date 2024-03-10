@@ -209,6 +209,7 @@ import Data.Traversable as Exp
   )
 import Data.Tuple as Exp (Solo (Solo), curry, fst, getSolo, snd, swap, uncurry)
 import GHC.Base as Exp (($!))
+import GHC.Enum as Exp (Bounded (..), Enum (..))
 import GHC.Float as Exp
   ( Double,
     Float,
@@ -245,9 +246,9 @@ import GHC.Real as Exp
     numerator,
     odd,
     realToFrac,
+    (%),
     (^),
     (^^),
-    (%)
   )
 import GHC.Show as Exp
   ( Show (..),
@@ -341,14 +342,14 @@ import System.IO as Exp
   )
 import Text.Printf as Exp (hPrintf, printf)
 
-drop :: Integral i => i -> [a] -> [a]
+drop :: (Integral i) => i -> [a] -> [a]
 drop = L.genericDrop
 
-replicate :: Integral i => i -> a -> [a]
+replicate :: (Integral i) => i -> a -> [a]
 replicate = L.genericReplicate
 
-splitAt :: Integral i => i -> [a] -> ([a], [a])
+splitAt :: (Integral i) => i -> [a] -> ([a], [a])
 splitAt = L.genericSplitAt
 
-take :: Integral i => i -> [a] -> [a]
+take :: (Integral i) => i -> [a] -> [a]
 take = L.genericTake
