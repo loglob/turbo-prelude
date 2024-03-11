@@ -1,7 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 
 -- | The prelude sans anything defined in this package
-module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take, imap) where
+module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take, maximum1, minimum1, maximumBy1, minimumBy1) where
 
 import Control.Applicative as Exp (Alternative (..), Applicative (..), liftA, liftA3)
 import Control.Lens as Exp
@@ -109,6 +109,27 @@ import Data.Foldable as Exp
     sequenceA_,
     traverse_,
   )
+import Data.Foldable1 as Exp
+  ( Foldable1
+      ( fold1,
+        foldMap1,
+        foldMap1',
+        foldlMap1,
+        foldlMap1',
+        foldrMap1,
+        foldrMap1',
+        toNonEmpty
+      ),
+    foldl1,
+    foldl1',
+    foldlM1,
+    foldlMapM1,
+    foldr1,
+    foldr1',
+    foldrM1,
+    foldrMapM1,
+  )
+import qualified Data.Foldable1 as F1
 import Data.Function as Exp (const, flip, id, ($), (.))
 import Data.Functor as Exp (Functor (fmap), unzip)
 import Data.Functor.Const as Exp (Const (..))
@@ -365,8 +386,14 @@ splitAt = L.genericSplitAt
 take :: (Integral i) => i -> [a] -> [a]
 take = L.genericTake
 
-imap :: (Integral i) => (i -> a -> b) -> [a] -> [b]
-imap f = m 0
-  where
-    m _ [] = []
-    m i (x : xs) = f i x : m (i + 1) xs
+maximum1 :: (Foldable1 f, Ord a) => f a -> a
+maximum1 = F1.maximum
+
+minimum1 :: (Foldable1 f, Ord a) => f a -> a
+minimum1 = F1.minimum
+
+maximumBy1 :: (Foldable1 f) => (a -> a -> Ordering) -> f a -> a
+maximumBy1 = F1.maximumBy
+
+minimumBy1 :: (Foldable1 f) => (a -> a -> Ordering) -> f a -> a
+minimumBy1 = F1.minimumBy

@@ -55,6 +55,13 @@ concatMapM f = m where
     m    []  = return []
     m (x:xs) = f x <++> m xs
 
+-- | Maps over a list alongside its index
+imap :: (Integral i) => (i -> a -> b) -> [a] -> [b]
+imap f = m 0
+  where
+    m _ [] = []
+    m i (x : xs) = f i x : m (i + 1) xs
+
 -- | Splits a list by a predicate
 split :: (a -> Bool) -> [a] -> NonEmpty [a]
 split f = spl where
