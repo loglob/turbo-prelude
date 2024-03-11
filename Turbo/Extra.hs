@@ -3,6 +3,7 @@ import Turbo.RootPrelude
 import qualified Data.Foldable as F
 import qualified Data.Functor as Fu
 import qualified Data.Text as T
+import Turbo.Operators ((<++>), (>:|>), (<:|))
 
 -- * Misc functions
 -- | Prepends a text's contents before a suffix string
@@ -28,6 +29,39 @@ toFst f x = (f x,x)
 -- | Applies a function and preserves its argument as the first value
 toSnd :: (a -> b) -> a -> (a,b)
 toSnd f x = (x,f x)
+
+-- ** List Operations
+-- | Lens for the head of a NonEmpty
+_head1 :: Lens' (NonEmpty a) a
+_head1 f (x :| xs)= f x <:| xs
+
+-- | Lens for the possibly-empty tail of a NonEmpty
+_tail1 :: Lens' (NonEmpty a) [a]
+_tail1 f (x :| xs) = x >:|> f xs
+
+-- | Lens for the head of a NonEmpty
+_last1 :: Lens' (NonEmpty a) a
+_last1 f (x :| xs) = g x xs where
+    g x    []  = f x <:| []
+    g x (y:ys) = fmap (x <|)  (g y ys)
+
+-- | concatMap lifted to monads
+concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
+concatMapM f = m where
+    m    []  = return []
+    m (x:xs) = f x <++> m xs
+
+-- | Splits a list by a predicate
+split :: (a -> Bool) -> [a] -> NonEmpty [a]
+split f = spl where
+    spl    []  = [] :| []
+    spl (x:xs) = if f x
+                    then [] <| split f xs
+                    else let y :| ys = spl xs in (x : y) :| ys
+
+-- | Trims the left and right sides of a list by some removal predicate
+trim :: (a -> Bool) -> [a] -> [a]
+trim f = dropWhileEnd f .dropWhile f
 
 -- ** Monad Operations
 -- | Executes a computation and discards the result
@@ -94,6 +128,16 @@ whileJust :: Monad m => m (Maybe a) -> m [a]
 whileJust f = f >>= \case
     Nothing -> return []
     Just x  -> (x:) `fmap` whileJust f
+
+-- | Repeats a computation until it outputs `False`
+whileM :: Monad m => m Bool -> m ()
+whileM c = c >>= \case
+    True -> whileM c
+    False -> return ()
+
+-- | Variant of `whileM` that repeats until `True` is returned
+untilM :: Monad m => m Bool -> m ()
+untilM = whileM .fmap not
 
 
 -- * two-branch forking operator

@@ -5,7 +5,8 @@ module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take, imap) wher
 
 import Control.Applicative as Exp (Alternative (..), Applicative (..), liftA, liftA3)
 import Control.Lens as Exp
-  ( Field1 (..),
+  ( Cons (..),
+    Field1 (..),
     Field10 (..),
     Field11 (..),
     Field12 (..),
@@ -36,7 +37,7 @@ import Control.Lens as Exp
     set,
     view,
     _head,
-    _tail
+    _tail,
   )
 import Control.Monad as Exp
   ( Monad (return, (>>=)),
