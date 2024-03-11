@@ -6,11 +6,9 @@ import qualified Data.Text as T
 import Turbo.Operators ((<++>), (>:|>), (<:|))
 
 -- * Misc functions
--- | Prepends a text's contents before a suffix string
-unpacks :: Text -> String -> String
-unpacks t x = case T.uncons t of
-    Nothing    -> x
-    Just (c,r) -> c : unpacks r x
+-- | Applies the same function on both sides of a Bifunctor
+both :: Bifunctor f => (a -> b) -> f a a -> f b b
+both f = bimap f f
 
 -- | Access the left element of an Either
 left :: Either a b -> Maybe a
@@ -29,6 +27,12 @@ toFst f x = (f x,x)
 -- | Applies a function and preserves its argument as the first value
 toSnd :: (a -> b) -> a -> (a,b)
 toSnd f x = (x,f x)
+
+-- | Prepends a text's contents before a suffix string
+unpacks :: Text -> String -> String
+unpacks t x = case T.uncons t of
+    Nothing    -> x
+    Just (c,r) -> c : unpacks r x
 
 -- ** List Operations
 -- | Lens for the head of a NonEmpty
@@ -64,6 +68,10 @@ trim :: (a -> Bool) -> [a] -> [a]
 trim f = dropWhileEnd f .dropWhile f
 
 -- ** Monad Operations
+-- | Applies the same computation on both sides of a Bifunctor
+bothM :: (Bitraversable f, Applicative g) => (a -> g b) -> f a a -> g (f b b)
+bothM f = bimapM f f
+
 -- | Executes a computation and discards the result
 btw :: Functor m => (a -> m ()) -> a -> m a
 btw f a = f a Fu.$> a

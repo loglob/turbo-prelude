@@ -163,6 +163,12 @@ import Data.List as Exp
     unfoldr,
     unsnoc,
     zip,
+    zipWith,
+    zipWith3,
+    zipWith4,
+    zipWith5,
+    zipWith6,
+    zipWith7,
     (!?),
     (++),
   )
