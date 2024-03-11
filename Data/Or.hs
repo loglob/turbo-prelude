@@ -1,5 +1,5 @@
 module Data.Or where
-import Turbo.Prelude hiding (zipWithM, partition)
+import Turbo.Prelude hiding (zipWith, zipWithM, partition)
 
 -- | A sum type akin to logical or rather than exclusive or (i.e. Either)
 data Or a b = OnlyLeft a | OnlyRight b | Both a b deriving (Show, Eq, Ord)
