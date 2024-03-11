@@ -35,6 +35,8 @@ import Control.Lens as Exp
     over,
     set,
     view,
+    _head,
+    _tail
   )
 import Control.Monad as Exp
   ( Monad (return, (>>=)),
@@ -230,7 +232,7 @@ import GHC.Float as Exp
     isFloatNegativeZero,
   )
 import GHC.Int as Exp (Int (..), Int16 (..), Int32 (..), Int64 (..), Int8 (..))
-import GHC.Num as Exp (Integer (..), Natural (..), Num (..))
+import GHC.Num as Exp (Integer, Natural (..), Num (..))
 import GHC.Real as Exp
   ( Fractional (..),
     Integral (..),
@@ -240,6 +242,7 @@ import GHC.Real as Exp
     RealFrac (..),
     denominator,
     even,
+    fromIntegral,
     gcd,
     infinity,
     lcm,

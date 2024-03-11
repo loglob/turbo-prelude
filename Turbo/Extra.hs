@@ -34,6 +34,16 @@ toSnd f x = (x,f x)
 btw :: Functor m => (a -> m ()) -> a -> m a
 btw f a = f a Fu.$> a
 
+-- | if-then-else lifted to a monad
+ifM :: Monad m => m Bool -> m a -> m a -> m a
+ifM x t e = x >>= \case
+    True  -> t
+    False -> e
+
+-- | ifM that discards results
+ifM_ :: Monad m => m Bool -> m a -> m b -> m ()
+ifM_ x t e = ifM x (void t) (void e)
+
 -- | Triple-nested variant of join
 joinM :: (Monad m, Traversable n) => m (n (m a)) -> m (n a)
 joinM = (>>= traverse id)
@@ -46,11 +56,38 @@ toFstM f x = fmap (,x) (f x)
 toSndM :: Functor f => (a -> f b) -> a -> f (a,b)
 toSndM f x = fmap (x,) (f x)
 
--- | Variant of `whenM` that preserves the computed value
-whenM' :: Monad m => m Bool -> m a -> m (Maybe a)
-whenM' x f = x >>= \case
-    True -> Just `fmap` f
-    False -> return Nothing
+-- | unless lifted to monads preserving the result
+unlessM :: Monad m => m Bool -> m a -> m (Maybe a)
+unlessM x y = ifM x (return Nothing) (fmap Just y)
+
+-- | unless lifted to monads discarding the result
+unlessM_ :: Monad m => m Bool -> m a -> m ()
+unlessM_ x y = ifM_ x (return()) y
+
+-- | Runs a computation only if a value is present
+whenJust :: Monad m => Maybe a -> (a -> m (Maybe b)) -> m (Maybe b)
+whenJust Nothing  _ = return Nothing
+whenJust (Just x) f = f x
+
+-- | Variant of `whenJust` that discards the result
+whenJust_ :: Monad m => Maybe a -> (a -> m b) -> m ()
+whenJust_ Nothing  _ = return ()
+whenJust_ (Just x) f = void (f x)
+
+-- | `whenJust` inside a monad
+whenJustM :: Monad m => m (Maybe a) -> (a -> m (Maybe b)) -> m (Maybe b)
+whenJustM x f = x >>= \y -> whenJust y f
+
+whenJustM_ :: Monad m => m (Maybe a) -> (a -> m b) -> m ()
+whenJustM_ x f = x >>= \y -> whenJust_ y f
+
+-- | Variant of `ifM` with only one branch
+whenM :: Monad m => m Bool -> m a -> m (Maybe a)
+whenM x f = ifM x (fmap Just f) (return Nothing)
+
+-- | Variant of `ifM_` with only one branch
+whenM_ :: Monad m => m Bool -> m a -> m ()
+whenM_ x f = ifM x (void f) (return ())
 
 -- | Repeatedly computes a maybe until it becomes `Nothing`
 whileJust :: Monad m => m (Maybe a) -> m [a]
@@ -125,6 +162,14 @@ triFork4M f g h a b c d = liftA3 (,,) (f a b c d) (g a b c d) (h a b c d)
 
 -- * Replacers for partial functions
 -- ** empty-safe foldable functions
+-- | Counts the number of elements that fulfill a predicate
+count :: (Foldable f, Num i) => (a -> Bool) -> f a -> i
+count f = sumBy (\x -> if f x then 1 else 0)
+
+-- | Retrieves the maximum value, if any
+maximum :: (Foldable f, Ord a) => f a -> Maybe a
+maximum xs = if F.null xs then Nothing else Just (F.maximum xs)
+
 -- | Retrieves the maximum value, if any, by the given ordering function.
 --   If there are multiple such values, returns the leftmost one.
 maximumBy :: Foldable f => (a -> a -> Ordering) -> f a -> Maybe a
@@ -134,6 +179,10 @@ maximumBy f xs = foldr g Nothing xs where
         GT -> x
         EQ -> x
         LT -> y
+
+-- | Retrieves the minimum value, if any
+minimum :: (Foldable f, Ord a) => f a -> Maybe a
+minimum xs = if F.null xs then Nothing else Just (F.minimum xs)
 
 -- | Retrieves the minimum value, if any, by the given ordering function.
 --   If there are multiple such values, returns the leftmost one.
@@ -145,21 +194,9 @@ minimumBy f xs = foldr g Nothing xs where
         EQ -> x
         LT -> x
 
--- | Retrieves the maximum value, if any
-maximum :: (Foldable f, Ord a) => f a -> Maybe a
-maximum xs = if F.null xs then Nothing else Just (F.maximum xs)
-
--- | Retrieves the minimum value, if any
-minimum :: (Foldable f, Ord a) => f a -> Maybe a
-minimum xs = if F.null xs then Nothing else Just (F.minimum xs)
-
 -- | Sums a foldable under a mapping
 sumBy :: (Foldable f, Num n) => (a -> n) -> f a -> n
 sumBy f = foldl' (\x y -> x + f y) 0
-
--- | Counts the number of elements that fulfill a predicate
-count :: (Foldable f, Num i) => (a -> Bool) -> f a -> i
-count f = sumBy (\x -> if f x then 1 else 0)
 
 -- | Lifts a function over `NonEmpty` to lists
 viaNE :: (NonEmpty a -> b) -> [a] -> Maybe b
