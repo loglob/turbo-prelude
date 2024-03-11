@@ -15,10 +15,10 @@ Then edit your `*.cabal` file to include:
 ```yml
 build-depends:
 	base,
-	turbo-hs
+	turbo-prelude
 mixins:
 	base hiding (Prelude),
-	turbo-prelude (Turbo.Prelude as Prelude)
+	turbo-prelude (Turbo.Prelude as Prelude, Control.Attempt, Data.Or, Data.SignedSet)
 ```
 I strongly recommend also adding these extensions:
 ```yml
