@@ -219,6 +219,28 @@ triFork4M :: Applicative f => (a -> b -> c -> d -> f x) -> (a -> b -> c -> d -> 
 triFork4M f g h a b c d = liftA3 (,,) (f a b c d) (g a b c d) (h a b c d)
 
 
+-- * Maps over tuples
+-- | Maps over triples
+map3 :: (a -> b) -> (a,a,a) -> (b,b,b)
+map3 f (a,b,c) = (f a, f b, f c)
+
+-- | Maps over 4-tuples
+map4 :: (a -> b) -> (a,a,a,a) -> (b,b,b,b)
+map4 f (a,b,c,d) = (f a, f b, f c, f d)
+
+-- | Maps over 5-tuples
+map5 :: (a -> b) -> (a,a,a,a,a) -> (b,b,b,b,b)
+map5 f (a,b,c,d,e) = (f a, f b, f c, f d, f e)
+
+-- | Maps over 6-tuples
+map6 :: (a -> b) -> (a,a,a,a,a,a) -> (b,b,b,b,b,b)
+map6 f (a,b,c,d,e,g) = (f a, f b, f c, f d, f e, f g)
+
+-- | Maps over 7-tuples
+map7 :: (a -> b) -> (a,a,a,a,a,a,a) -> (b,b,b,b,b,b,b)
+map7 f (a,b,c,d,e,g,h) = (f a, f b, f c, f d, f e, f g, f h)
+
+
 -- * Replacers for partial functions
 -- ** empty-safe foldable functions
 -- | Counts the number of elements that fulfill a predicate
