@@ -4,6 +4,7 @@ import qualified Data.Foldable as F
 import qualified Data.Functor as Fu
 import qualified Data.Text as T
 import Turbo.Operators ((<++>), (>:|>), (<:|))
+import Turbo.ExtraTH
 
 -- * Misc functions
 -- | Applies the same function on both sides of a Bifunctor
@@ -220,26 +221,9 @@ triFork4M f g h a b c d = liftA3 (,,) (f a b c d) (g a b c d) (h a b c d)
 
 
 -- * Maps over tuples
--- | Maps over triples
-map3 :: (a -> b) -> (a,a,a) -> (b,b,b)
-map3 f (a,b,c) = (f a, f b, f c)
+mkTupleMaps [3..9]
 
--- | Maps over 4-tuples
-map4 :: (a -> b) -> (a,a,a,a) -> (b,b,b,b)
-map4 f (a,b,c,d) = (f a, f b, f c, f d)
-
--- | Maps over 5-tuples
-map5 :: (a -> b) -> (a,a,a,a,a) -> (b,b,b,b,b)
-map5 f (a,b,c,d,e) = (f a, f b, f c, f d, f e)
-
--- | Maps over 6-tuples
-map6 :: (a -> b) -> (a,a,a,a,a,a) -> (b,b,b,b,b,b)
-map6 f (a,b,c,d,e,g) = (f a, f b, f c, f d, f e, f g)
-
--- | Maps over 7-tuples
-map7 :: (a -> b) -> (a,a,a,a,a,a,a) -> (b,b,b,b,b,b,b)
-map7 f (a,b,c,d,e,g,h) = (f a, f b, f c, f d, f e, f g, f h)
-
+mkTupleColls [3..9]
 
 -- * Replacers for partial functions
 -- ** empty-safe foldable functions

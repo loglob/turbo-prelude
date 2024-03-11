@@ -4,6 +4,7 @@ import Language.Haskell.TH
 import Turbo.RootPrelude
 import Data.Char (isUpper)
 import GHC.Err (error)
+import Turbo.ExtraTH ((→))
 
 -- | The context placed on a type signature
 type OpInfo = (Name, Fixity, Cxt, Type, Type, Type)
@@ -30,11 +31,6 @@ opInfo x = do
         -- (->) a ((->) b c)   === a -> (b -> c)
         AppT (AppT p a) (AppT (AppT q b) c) | isArrow q, isArrow p -> return (x, f, ctx, a, b, c)
         _ -> error$ "Expected a binary function, got: " ++ show t
-
-infixr 0 →
--- | Shorthand for constructing function types
-(→) :: Type -> Type -> Type
-a → b = AppT (AppT ArrowT a) b
 
 -- | Gets an expression for a constructor or normal function by its name 
 conOrVarE :: Name -> Q Exp
