@@ -15,6 +15,9 @@ isArrow ArrowT = True
 isArrow (AppT MulArrowT _) = True
 isArrow _ = False
 
+mkInline :: Name -> Dec
+mkInline nm = PragmaD (InlineP nm Inline FunLike AllPhases)
+
 -- | decodes a binary function's types from its name
 opInfo :: Name -> Q OpInfo
 opInfo x = do
@@ -51,6 +54,7 @@ leftWrapper (n,_,ctx,a,b,c) = do
     return [
         InfixD fx n' ,
         SigD n' (ForallT [] ctx' (a' → b → c')) ,
+        mkInline n' ,
         FunD n' [ Clause [] (NormalB v) [] ]
      ]
 
@@ -66,6 +70,7 @@ rightWrapper (n,_,ctx,a,b,c) = do
     return [
         InfixD fx n' ,
         SigD n' (ForallT [] ctx' (a → b' → c')) ,
+        mkInline n' ,
         FunD n' [ Clause [] (NormalB v) [] ]
      ]
 
@@ -82,6 +87,7 @@ applicativeWrapper (n,_,ctx,a,b,c) = do
     return [
         InfixD fx n' ,
         SigD n' (ForallT [] ctx' (a' → b' → c')) ,
+        mkInline n' ,
         FunD n' [ Clause [] (NormalB v) [] ]
      ]
 
