@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.0.9.1
+version:            1.0.10.0
 
 synopsis: Alternate prelude and extra library
 
@@ -15,6 +15,7 @@ library
         Data.Or
         Data.SignedSet
         Turbo.Prelude
+        Turbo.Cast
     build-depends:
         base,
         containers,
