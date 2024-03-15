@@ -20,10 +20,16 @@ f $$ (a,b) = f a b
 f $$$ (a,b,c) = f a b c
 f $$$$ (a,b,c,d) = f a b c d
 
-makeOperators '($) -- this one generates weird types
+makeOperators '($)
 makeOperators '($$)
 makeOperators '($$$)
 makeOperators '($$$$)
+
+-- ** Postponing variants
+makePostponed 1 [1..5]
+makePostponed 2 [1..5]
+makePostponed 3 [1..5]
+makePostponed 4 [1..5]
 
 -- ** strict variants
 infixr 0 $$!, $$$!, $$$$!

@@ -1,10 +1,11 @@
 {-# OPTIONS_HADDOCK hide #-}
-module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper) where
+module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed) where
 import Language.Haskell.TH
 import Turbo.RootPrelude
 import Data.Char (isUpper)
 import GHC.Err (error)
 import Turbo.ExtraTH ((→))
+import Turbo.Cast (sign)
 
 -- | The context placed on a type signature
 type OpInfo = (Name, Cxt, Type, Type, Type)
@@ -112,3 +113,34 @@ makeOperators n = do
     bs <- rightWrapper o
     cs <- applicativeWrapper o
     return$ as ++ bs ++ cs
+
+dotPrefix :: Word -> String
+dotPrefix 0 = ""
+dotPrefix n = let m = n `div` 2 in if even n then ".." ++ (replicate (m-1) ':') else '.' : replicate m ':'
+
+-- | Generates an operator for postponed $ with $1 dollars and $2 dots
+postponedDollar :: Word -> Word -> Q [Dec] 
+postponedDollar m n = do
+    args <- mapM newName (replicate n "a")
+    tuple@(x0:_) <- mapM newName (replicate m "x")
+    fn <- newName "f"
+    ret <- newName "y"
+    let nm = mkName (dotPrefix n ++ replicate m '$')
+    let t1 = foldr (→) (VarT ret) (fmap VarT (args ++ tuple))
+    let t2 = if m == 1 then VarT x0 else foldl AppT (TupleT (sign m)) (fmap VarT tuple)
+    let t3 = foldr (→) (VarT ret) (fmap VarT args)
+    let o = (nm, [], t1, t2, t3) :: OpInfo
+    as <- leftWrapper o
+    bs <- rightWrapper o
+    cs <- applicativeWrapper o
+    return$ [
+        InfixD (Fixity 0 InfixR) nm ,
+        SigD nm (t1 → t2 → t3) ,
+        mkInline nm ,
+        FunD nm [Clause [ VarP fn, if m == 1 then VarP x0 else TupP (fmap VarP tuple)] (NormalB$
+            LamE (fmap VarP args) (foldl AppE (VarE fn) (fmap VarE (args ++ tuple)))
+         ) []] 
+     ] ++ as ++ bs ++ cs
+
+makePostponed :: Word -> [Word] -> Q [Dec]
+makePostponed n ms = fmap concat$ mapM (postponedDollar n) ms
