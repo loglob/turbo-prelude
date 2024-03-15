@@ -7,7 +7,7 @@ import GHC.Err (error)
 import Turbo.ExtraTH ((→))
 
 -- | The context placed on a type signature
-type OpInfo = (Name, Fixity, Cxt, Type, Type, Type)
+type OpInfo = (Name, Cxt, Type, Type, Type)
 
 -- | Whether a type is equivalent to (->) :: * -> * -> *
 isArrow :: Type -> Bool
@@ -22,7 +22,6 @@ mkInline nm = PragmaD (InlineP nm Inline FunLike AllPhases)
 opInfo :: Name -> Q OpInfo
 opInfo x = do
     r <- reify x
-    Just f <- reifyFixity x
     let ft = case r of
             VarI _ t _ -> t
             DataConI _ t _ -> t
@@ -32,7 +31,7 @@ opInfo x = do
            t              -> ([], t)
     case t of
         -- (->) a ((->) b c)   === a -> (b -> c)
-        AppT (AppT p a) (AppT (AppT q b) c) | isArrow q, isArrow p -> return (x, f, ctx, a, b, c)
+        AppT (AppT p a) (AppT (AppT q b) c) | isArrow q, isArrow p -> return (x, ctx, a, b, c)
         _ -> error$ "Expected a binary function, got: " ++ show t
 
 -- | Gets an expression for a constructor or normal function by its name 
@@ -43,7 +42,7 @@ conOrVarE n = case nameBase n of
     _     -> varE n
 
 leftWrapper :: OpInfo -> Q [Dec]
-leftWrapper (n,_,ctx,a,b,c) = do
+leftWrapper (n,ctx,a,b,c) = do
     let n' = mkName$ '<' : nameBase n
     f <- newName "f"
     let fx = Fixity 4 InfixL
@@ -59,7 +58,7 @@ leftWrapper (n,_,ctx,a,b,c) = do
      ]
 
 rightWrapper :: OpInfo -> Q [Dec]
-rightWrapper (n,_,ctx,a,b,c) = do
+rightWrapper (n,ctx,a,b,c) = do
     let n' = mkName$ nameBase n ++ ">"
     f <- newName "f"
     let fx = Fixity 4 InfixL
@@ -75,7 +74,7 @@ rightWrapper (n,_,ctx,a,b,c) = do
      ]
 
 applicativeWrapper :: OpInfo -> Q [Dec]
-applicativeWrapper (n,_,ctx,a,b,c) = do
+applicativeWrapper (n,ctx,a,b,c) = do
     let n' = mkName$ '<' : nameBase n ++ ">"
     f <- newName "f"
     let fx = Fixity 4 InfixL
