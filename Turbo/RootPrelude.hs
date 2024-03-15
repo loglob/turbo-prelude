@@ -40,7 +40,7 @@ import Control.Lens as Exp
     _tail,
   )
 import Control.Monad as Exp
-  ( Monad (return, (>>=)),
+  ( Monad (..),
     MonadFail (..),
     MonadPlus (..),
     ap,

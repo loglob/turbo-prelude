@@ -1,6 +1,5 @@
 module Control.Attempt where
 import Turbo.Prelude
-import qualified Control.Monad as M
 
 -- | Represents an attempt that may fail silently or with signal.
 --   
