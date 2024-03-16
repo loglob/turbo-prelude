@@ -62,7 +62,7 @@ And variants for higher-arity functions, `<<<$`, `$>>>`, `<<<$>`, `<$>>>`, `<<<<
 Each of these also has variants with `$$`, `$$$` or `$$$$` in place of `$`.
 
 The defined operator families are:
-- Extensions for `.`
+- Extensions for `.` with a higher-arity right function
 	- Since `..` is reserved internally, its higher-order forms are `.:`, `.:.` and `.::`
 - Picking operators `|^` and `^|` which discard the left and right values, respectively
 	- These alias the hidden class members `<$`, `<*` and `*>`
@@ -77,6 +77,10 @@ The defined operator families are:
 	- or `.&.. :: (a,b) -> (c,d,e) -> (a,b,c,d,e)`
 - `~ :: (a -> b) -> (b -> c) -> a -> c` as flipped `.`
 	- This has no duplicated forms
+- `°` function substitution that generalizes function composition
+	- Substitutes its right argument for the last argument of its left argument 
+	- Add `.` to the left or right to specify the arity of that function
+	- `°`, `°.`, `°:`, etc. are exactly function composition `.`, `.:`, `.:.` etc.
 - The default `:` and `:|` constructors
 	- These use `>:>` and `>:|>` instead of `:>` and `:|>` as those are illegal operator names
 	- Wrappers for `++` are also included
