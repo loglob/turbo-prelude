@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.0.13.0
+version:            1.0.14.0
 
 synopsis: Alternate prelude and extra library
 

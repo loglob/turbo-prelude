@@ -84,6 +84,14 @@ bothM f = bimapM f f
 btw :: Functor m => (a -> m ()) -> a -> m a
 btw f a = f a Fu.$> a
 
+-- | Alias for bitraverse only over the first value
+firstM :: (Bitraversable f, Applicative g) => (a -> g b) -> f a x -> g (f b x)
+firstM f = bitraverse f pure
+
+-- | Alias for bitraverse only over the second value
+secondM :: (Bitraversable f, Applicative g) => (a -> g b) -> f x a -> g (f x b)
+secondM = bitraverse pure
+
 -- | if-then-else lifted to a monad
 ifM :: Monad m => m Bool -> m a -> m a -> m a
 ifM x t e = x >>= \case
