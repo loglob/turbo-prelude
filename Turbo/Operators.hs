@@ -125,7 +125,7 @@ makeRightWrapper '(§§§!)
 makeRightWrapper '(§§§§!)
 
 
--- *  extended .-family
+-- *  Extended .-family
 infixr 9 .:
 -- | Higher-order function composition for arity 2
 (.:) :: (x -> y) -> (a -> b -> x) -> a -> b -> y
@@ -144,10 +144,21 @@ infixr 9 .::
 {-# INLINE (.::) #-}
 (.::) f g a b c d = f (g a b c d)
 
+infixr 9 .::.
+-- | Higher-order function composition for arity 5
+(.::.) :: (x -> y) -> (a -> b -> c -> d -> e -> x) -> (a -> b -> c -> d -> e -> y)
+{-# INLINE (.::.) #-}
+(.::.) f g a b c d e = f (g a b c d e)
+
 makeOperators '(.)
 makeOperators '(.:)
 makeOperators '(.:.)
 makeOperators '(.::)
+makeOperators '(.::.)
+
+
+-- * °-family of function substitution
+makeFuncSubst [1..4] [1..4]
 
 
 -- * &-family of tuple mergers

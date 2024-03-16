@@ -3,10 +3,9 @@
 {-# LANGUAGE BangPatterns #-}
 module Turbo.Cast where
 import Data.Bits
-import Prelude
+import Turbo.RootPrelude
 import GHC.Exts
-import GHC.Word
-import GHC.Int
+import GHC.Err (error)
 
 -- * Sign Elimination
 -- | Bit-casts int to word

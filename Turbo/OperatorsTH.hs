@@ -1,11 +1,10 @@
 {-# OPTIONS_HADDOCK hide #-}
-module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed) where
+module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst) where
 import Language.Haskell.TH
 import Turbo.RootPrelude
 import Data.Char (isUpper)
 import GHC.Err (error)
 import Turbo.ExtraTH ((→))
-import Turbo.Cast (sign)
 
 -- | The context placed on a type signature
 type OpInfo = (Name, Cxt, Type, Type, Type)
@@ -118,6 +117,29 @@ dotPrefix :: Word -> String
 dotPrefix 0 = ""
 dotPrefix n = let m = n `div` 2 in if even n then ".." ++ (replicate (m-1) ':') else '.' : replicate m ':'
 
+dotSuffix :: Word -> String
+dotSuffix 0 = ""
+dotSuffix n = replicate (n `div` 2) ':' ++ if odd n then "." else ""
+
+funT :: [Type] -> Type -> Type
+funT as r = foldr (→) r as
+
+funT' :: [Name] -> Name -> Type
+funT' as r = funT (fmap VarT as) (VarT r)
+
+tupT :: [Type] -> Type
+tupT [x] = x
+tupT fs  = foldl AppT (TupleT (length fs)) fs
+
+tupT' :: [Name] -> Type
+tupT' = tupT .fmap VarT
+
+newNames :: Word -> String -> Q [Name]
+newNames n x = mapM newName (replicate n x)
+
+app' :: Name -> [Name] -> Exp
+app' f xs = foldl AppE (VarE f) (fmap VarE xs)
+
 -- | Generates an operator for postponed $ with $1 dollars and $2 dots
 postponedDollar :: Word -> Word -> Q [Dec] 
 postponedDollar m n = do
@@ -126,9 +148,9 @@ postponedDollar m n = do
     fn <- newName "f"
     ret <- newName "y"
     let nm = mkName (dotPrefix n ++ replicate m '$')
-    let t1 = foldr (→) (VarT ret) (fmap VarT (args ++ tuple))
-    let t2 = if m == 1 then VarT x0 else foldl AppT (TupleT (sign m)) (fmap VarT tuple)
-    let t3 = foldr (→) (VarT ret) (fmap VarT args)
+    let t1 = funT' (args ++ tuple) ret
+    let t2 = if m == 1 then VarT x0 else tupT' tuple
+    let t3 = funT' args ret
     let o = (nm, [], t1, t2, t3) :: OpInfo
     as <- leftWrapper o
     bs <- rightWrapper o
@@ -137,10 +159,38 @@ postponedDollar m n = do
         InfixD (Fixity 0 InfixR) nm ,
         SigD nm (t1 → t2 → t3) ,
         mkInline nm ,
-        FunD nm [Clause [ VarP fn, if m == 1 then VarP x0 else TupP (fmap VarP tuple)] (NormalB$
-            LamE (fmap VarP args) (foldl AppE (VarE fn) (fmap VarE (args ++ tuple)))
+        FunD nm [Clause (VarP fn : (if m == 1 then VarP x0 else TupP (fmap VarP tuple)) : fmap VarP args) (NormalB$
+            foldl AppE (VarE fn) (fmap VarE (args ++ tuple))
          ) []] 
      ] ++ as ++ bs ++ cs
 
 makePostponed :: Word -> [Word] -> Q [Dec]
 makePostponed n ms = fmap concat$ mapM (postponedDollar n) ms
+
+funcSubst :: Word -> Word -> Q [Dec]
+funcSubst n m = do
+    let nm = mkName$ dotPrefix n ++ "°" ++ dotSuffix m
+    xs <- newNames n "x"
+    ys <- newNames (m+1) "y"
+    sub <- newName "a"
+    res <- newName "b"
+    let f1 = funT' (xs ++ [sub]) res
+    let f2 = funT' ys sub
+    let fo = funT' (xs ++ ys) res 
+    let o = (nm, [], f1, f2, fo) :: OpInfo
+    l <- leftWrapper o
+    r <- rightWrapper o
+    a <- applicativeWrapper o
+    let f = mkName "f"
+    let g = mkName "g"
+    return$ [
+        InfixD (Fixity 9 InfixR) nm ,
+        SigD nm (f1 → f2 → fo) ,
+        mkInline nm ,
+        FunD nm [Clause (VarP f : VarP g : fmap VarP (xs ++ ys)) (NormalB$
+            app' f xs `AppE` app' g ys
+         ) []]
+     ] ++ l ++ r ++ a
+
+makeFuncSubst :: [Word] -> [Word] -> Q [Dec]
+makeFuncSubst ns ms = fmap concat$ forM ns (\n -> fmap concat$ forM ms (funcSubst n))
