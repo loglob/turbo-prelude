@@ -165,19 +165,16 @@ makeFuncSubst 3
 makeFuncSubst 4
 makeFuncSubst 5
 
+
 -- * &-family of tuple mergers
 -- ** pairs
 makeTuplePaste 0
-
 -- ** triples
 makeTuplePaste 1
-
 -- ** 4-tuples
 makeTuplePaste 2
-
 -- ** 5-tuples
 makeTuplePaste 3
-
 -- ** 6-tuples
 makeTuplePaste 4
 

@@ -15,6 +15,7 @@ isArrow ArrowT = True
 isArrow (AppT MulArrowT _) = True
 isArrow _ = False
 
+-- | generates an inline pragma for the given function name
 mkInline :: Name -> Dec
 mkInline nm = PragmaD (InlineP nm Inline FunLike AllPhases)
 
@@ -41,6 +42,7 @@ conOrVarE n = case nameBase n of
     c:_   | isUpper c -> conE n
     _     -> varE n
 
+-- | creates a left-sided functor wrapper for an existing operator
 leftWrapper :: OpInfo -> Q [Dec]
 leftWrapper (n,ctx,a,b,c) = do
     let n' = mkName$ '<' : nameBase n
@@ -57,6 +59,7 @@ leftWrapper (n,ctx,a,b,c) = do
         FunD n' [ Clause [] (NormalB v) [] ]
      ]
 
+-- | creates a right-sided functor wrapper for an existing operator
 rightWrapper :: OpInfo -> Q [Dec]
 rightWrapper (n,ctx,a,b,c) = do
     let n' = mkName$ nameBase n ++ ">"
@@ -73,6 +76,7 @@ rightWrapper (n,ctx,a,b,c) = do
         FunD n' [ Clause [] (NormalB v) [] ]
      ]
 
+-- | creates a two-sided applicative wrapper for an existing operator
 applicativeWrapper :: OpInfo -> Q [Dec]
 applicativeWrapper (n,ctx,a,b,c) = do
     let n' = mkName$ '<' : nameBase n ++ ">"
@@ -113,43 +117,53 @@ makeOperators n = do
     cs <- applicativeWrapper o
     return$ as ++ bs ++ cs
 
+-- | Generates a dot decoration for the left side of an operator
 dotPrefix :: Word -> String
 dotPrefix 0 = ""
 dotPrefix n = let m = n `div` 2 in if even n then ".." ++ (replicate (m-1) ':') else '.' : replicate m ':'
 
+-- | Generates a dot decoration for the right side of an operator
 dotSuffix :: Word -> String
 dotSuffix 0 = ""
 dotSuffix n = replicate (n `div` 2) ':' ++ if odd n then "." else ""
 
+-- | shorthand for generating a function type with arguments $1 and return $2
 funT :: [Type] -> Type -> Type
 funT as r = foldr (→) r as
 
+-- | shorthand for generating a function type directly from type names
 funT' :: [Name] -> Name -> Type
 funT' as r = funT (fmap VarT as) (VarT r)
 
+-- | shorthand for generating tuple types that avoids introducing `Solo`s
 tupT :: [Type] -> Type
 tupT [x] = x
 tupT fs  = foldl AppT (TupleT (length fs)) fs
 
+-- | shorthand for generating tuple types from names that avoids introducing `Solo`s
 tupT' :: [Name] -> Type
 tupT' = tupT .fmap VarT
 
+-- | Shorthand for generating multiple new variables
 newNames :: Word -> String -> Q [Name]
 newNames n x = mapM newName (replicate n x)
 
+-- | shorthand for applying a function to variables via their names
 app' :: Name -> [Name] -> Exp
 app' f xs = foldl AppE (VarE f) (fmap VarE xs)
 
+-- | Generates every whole-valued pair so that `n+m  =  $1`
 unSum :: (Ord n, Num n) => n -> [(n,n)]
 unSum n = ns 0 where
     ns m | m > n = []
     ns m = (m, n - m) : ns (m+1)
 
+-- | Generates a tuple pattern and avoids introducing `Solo`
 tupP' :: [Name] -> Pat
 tupP' [n] = VarP n
 tupP' ns  = TupP (fmap VarP ns)
 
--- | Generates an operator for postponed $ with $1 dollars and $2 dots
+-- | Generates an operator for postponed `$` with $1 dollars and $2 dots
 postponedDollar :: Word -> Word -> Q [Dec] 
 postponedDollar m n = do
     args <- mapM newName (replicate n "a")
@@ -176,6 +190,7 @@ postponedDollar m n = do
 makePostponed :: Word -> [Word] -> Q [Dec]
 makePostponed n ms = fmap concat$ mapM (postponedDollar n) ms
 
+-- | Generates a °-operator for substituting the $1'th argument to the left function with the arity $2 right function
 funcSubst :: Word -> Word -> Q [Dec]
 funcSubst n m = do
     let nm = mkName$ dotPrefix n ++ "°" ++ dotSuffix m
@@ -204,6 +219,7 @@ funcSubst n m = do
 makeFuncSubst :: Word -> Q [Dec]
 makeFuncSubst n = fmap concat$ forM (unSum n) (uncurry funcSubst)
 
+-- | Generates an &-operator for combining a ($1+1) tuple and an ($2+1) tuple together
 tuplePaste :: Word -> Word -> Q [Dec]
 tuplePaste n m = do
     let nm = mkName$ dotPrefix n ++ "&" ++ dotSuffix m

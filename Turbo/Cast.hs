@@ -92,11 +92,11 @@ extendW8' (W8# w) = W# (word8ToWord# w)
 extendW8i' :: Word8 -> Int
 extendW8i' (W8# w) = I# (int8ToInt# (word8ToInt8# w))
 
--- | Extends an 16-bit unsigned to 64 bits. Total.
+-- | Extends a 16-bit unsigned to 64 bits. Total.
 extendW16 :: Word16 -> Word64
 extendW16 (W16# w) = W64# (wordToWord64# (word16ToWord# w))
 
--- | Extends an 16-bit unsigned to 64 bits signed. Total.
+-- | Extends a 16-bit unsigned to 64 bits signed. Total.
 --  Does not perform sign extension.
 extendW16i :: Word16 -> Int64
 extendW16i (W16# w) = I64# (intToInt64# (word2Int# (word16ToWord# w)))
@@ -109,11 +109,11 @@ extendW16' (W16# w) = W# (word16ToWord# w)
 extendW16i' :: Word16 -> Int
 extendW16i' (W16# w) = I# (int16ToInt# (word16ToInt16# w))
 
--- | Extends an 32-bit unsigned to 64 bits. Total.
+-- | Extends a 32-bit unsigned to 64 bits. Total.
 extendW32 :: Word32 -> Word64
 extendW32 (W32# w) = W64# (wordToWord64# (word32ToWord# w))
 
--- | Extends an 32-bit unsigned to 64 bits signed. Total.
+-- | Extends a 32-bit unsigned to 64 bits signed. Total.
 --  Does not perform sign extension.
 extendW32i :: Word32 -> Int64
 extendW32i (W32# w) = I64# (intToInt64# (word2Int# (word32ToWord# w)))
@@ -132,14 +132,14 @@ extendI8 (I8# i) = I64# (intToInt64# (int8ToInt# i))
 extendI8' :: Int8 -> Int
 extendI8' (I8# i) = I# (int8ToInt# i)
 
--- | Extends an 16-bit signed to 64 bit. Total.
+-- | Extends a 16-bit signed to 64 bit. Total.
 extendI16 :: Int16 -> Int64
 extendI16 (I16# i) = I64# (intToInt64# (int16ToInt# i))
 
--- | Extends an 16-bit signed to Int. Total.
+-- | Extends a 16-bit signed to Int. Total.
 extendI16' :: Int16 -> Int
 extendI16' (I16# i) = I# (int16ToInt# i)
 
--- | Extends an 32-bit signed to 64 bit. Total.
+-- | Extends a 32-bit signed to 64 bit. Total.
 extendI32 :: Int32 -> Int64
 extendI32 (I32# i) = I64# (intToInt64# (int32ToInt# i))
