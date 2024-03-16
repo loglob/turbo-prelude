@@ -158,71 +158,29 @@ makeOperators '(.::.)
 
 
 -- * °-family of function substitution
-makeFuncSubst [1..4] [1..4]
-
+makeFuncSubst 0
+makeFuncSubst 1
+makeFuncSubst 2
+makeFuncSubst 3
+makeFuncSubst 4
+makeFuncSubst 5
 
 -- * &-family of tuple mergers
 -- ** pairs
-infixl 1 &
-{-# INLINE (&) #-}
-(&) = (,)
+makeTuplePaste 0
 
 -- ** triples
-infixl 1 .&, &.
-{-# INLINE (.&) #-}
-{-# INLINE (&.) #-}
-(a,b) .& c = (a,b,c)
-a &. (b,c) = (a,b,c)
+makeTuplePaste 1
 
 -- ** 4-tuples
-infixl 1 ..&, .&., &:, &..
-{-# INLINE (..&) #-}
-{-# INLINE (.&.) #-}
-{-# INLINE (&:) #-}
-{-# INLINE (&..) #-}
-(a,b,c) ..& d = (a,b,c,d)
-(a,b) .&. (c,d) = (a,b,c,d)
-a &: (b,c,d) = (a,b,c,d)
-(&..) = (&:)
+makeTuplePaste 2
 
 -- ** 5-tuples
-infixl 1 .:&, ..&., .&.., .&:, &:.
-{-# INLINE (.:&) #-}
-{-# INLINE (..&.) #-}
-{-# INLINE (.&..) #-}
-{-# INLINE (&:.) #-}
-(a,b,c,d) .:& e = (a,b,c,d,e)
-(a,b,c) ..&. (d,e) = (a,b,c,d,e)
-(a,b) .&.. (c,d,e) = (a,b,c,d,e)
-(.&:) = (.&..)
-a &:. (b,c,d,e) = (a,b,c,d,e)
+makeTuplePaste 3
 
 -- ** 6-tuples
-infixl 1 ..:&, .:&., ..&:, ..&.., .&:., &::, &:..
-{-# INLINE (..:&) #-}
-{-# INLINE (.:&.) #-}
-{-# INLINE (..&:) #-}
-{-# INLINE (..&..) #-}
-{-# INLINE (.&:.) #-}
-{-# INLINE (&::) #-}
-{-# INLINE (&:..) #-}
-(a,b,c,d,e) ..:& f = (a,b,c,d,e,f)
-(a,b,c,d) .:&. (e,f) = (a,b,c,d,e,f)
-(a,b,c) ..&: (d,e,f) = (a,b,c,d,e,f)
-(..&..) = (..&:)
-(a,b) .&:. (c,d,e,f) = (a,b,c,d,e,f)
-a &:: (b,c,d,e,f) = (a,b,c,d,e,f)
-(&:..) = (&::)
+makeTuplePaste 4
 
--- ** wrappers
-fmap concat$ mapM makeOperators [ '(&), '(.&), '(&.), '(..&), '(.&.), '(&..), '(&:), '(.:&), '(..&.), '(.&..), '(.&:), '(&:.) ]
-
-infixl 4 <:&, <:&>
-(<:&) :: Applicative f => f (a,b,c) -> d -> f (a,b,c,d)
-(<:&) = (<..&)
-
-(<:&>) :: Applicative f => f (a,b,c) -> f d -> f (a,b,c,d)
-(<:&>) = (<..&>)
 
 -- * picking operators
 infixr 4 ^|, ^|>, <^|>

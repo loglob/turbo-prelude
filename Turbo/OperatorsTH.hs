@@ -1,5 +1,5 @@
 {-# OPTIONS_HADDOCK hide #-}
-module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst) where
+module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst, makeTuplePaste) where
 import Language.Haskell.TH
 import Turbo.RootPrelude
 import Data.Char (isUpper)
@@ -140,6 +140,15 @@ newNames n x = mapM newName (replicate n x)
 app' :: Name -> [Name] -> Exp
 app' f xs = foldl AppE (VarE f) (fmap VarE xs)
 
+unSum :: (Ord n, Num n) => n -> [(n,n)]
+unSum n = ns 0 where
+    ns m | m > n = []
+    ns m = (m, n - m) : ns (m+1)
+
+tupP' :: [Name] -> Pat
+tupP' [n] = VarP n
+tupP' ns  = TupP (fmap VarP ns)
+
 -- | Generates an operator for postponed $ with $1 dollars and $2 dots
 postponedDollar :: Word -> Word -> Q [Dec] 
 postponedDollar m n = do
@@ -192,5 +201,29 @@ funcSubst n m = do
          ) []]
      ] ++ l ++ r ++ a
 
-makeFuncSubst :: [Word] -> [Word] -> Q [Dec]
-makeFuncSubst ns ms = fmap concat$ forM ns (\n -> fmap concat$ forM ms (funcSubst n))
+makeFuncSubst :: Word -> Q [Dec]
+makeFuncSubst n = fmap concat$ forM (unSum n) (uncurry funcSubst)
+
+tuplePaste :: Word -> Word -> Q [Dec]
+tuplePaste n m = do
+    let nm = mkName$ dotPrefix n ++ "&" ++ dotSuffix m
+    ls <- newNames (1+n) "x"
+    rs <- newNames (1+m) "y"
+    let t1 = tupT' ls
+    let t2 = tupT' rs
+    let to = tupT' (ls ++ rs)
+    let o = (nm, [], t1, t2, to) :: OpInfo
+    l <- leftWrapper o
+    r <- rightWrapper o
+    a <- applicativeWrapper o
+    return$ [
+        InfixD (Fixity 1 InfixL) nm ,
+        SigD nm (t1 → t2 → to) ,
+        mkInline nm ,
+        FunD nm [
+            Clause [tupP' ls, tupP' rs] (NormalB$ TupE$ fmap (Just .VarE) (ls++rs)) []
+        ]
+     ] ++ l ++ r ++ a
+
+makeTuplePaste :: Word -> Q [Dec]
+makeTuplePaste n = fmap concat$ forM (unSum n) (uncurry tuplePaste)
