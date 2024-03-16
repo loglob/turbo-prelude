@@ -115,3 +115,27 @@ partition              []  = ([],[])
 partition (OnlyLeft  x:rs) = first  (x:) (partition rs)
 partition (OnlyRight y:rs) = second (y:) (partition rs)
 partition (Both x y   :rs) = bimap  (x:) (y:) (partition rs)
+
+-- | Accesses the left element or maps the right
+fromLeft :: (b -> a) -> Or a b -> a
+fromLeft _ (OnlyLeft a)  = a
+fromLeft f (OnlyRight b) = f b
+fromLeft _ (Both a _)    = a
+
+-- | Accesses the left element or runs a computation with the right
+fromLeftM :: Applicative m => (b -> m a) -> Or a b -> m a
+fromLeftM _ (OnlyLeft a)  = pure a
+fromLeftM f (OnlyRight b) = f b
+fromLeftM _ (Both a _)    = pure a
+
+-- | Accesses the right element or maps the left
+fromRight :: (a -> b) -> Or a b -> b
+fromRight f (OnlyLeft a)  = f a
+fromRight _ (OnlyRight b) = b
+fromRight _ (Both _ b)    = b
+
+-- | Accesses the right element or runs a computation with the left
+fromRightM :: Applicative m => (a -> m b) -> Or a b -> m b
+fromRightM f (OnlyLeft a)  = f a
+fromRightM _ (OnlyRight b) = pure b
+fromRightM _ (Both _ b)    = pure b
