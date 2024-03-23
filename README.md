@@ -1,4 +1,4 @@
-# TurboHaskell
+# TurboPrelude
 An alternate prelude and util library for Haskell.
 Its primary feature is an unorthodox redefinition of a lot of Haskell's operators (see below).
 
@@ -7,11 +7,11 @@ To include the prelude, create a `cabal.project` file in your project root direc
 ```yml
 source-repository-package
     type: git
-    location: https://github.com/loglob/turbo-hs
+    location: https://github.com/loglob/turbo-prelude
 
-packages: ./[YOUR PROJECT HERE].cabal
+packages: ./*.cabal
 ```
-Then edit your `*.cabal` file to include:
+Then edit your `.cabal` file to include:
 ```yml
 build-depends:
 	base,
@@ -51,14 +51,6 @@ With these wrapped variant **which overwrite default definitions**:
 ($>)  :: Functor f => (a -> b) -> f a -> f b
 (<$>) :: Applicative f => f (a -> b) -> f a -> f b
 ```
-These also have higher arity wrappers:
-```hs
-(<<$)  :: Functor f => (x -> f (a -> b)) -> a -> x -> f b
-($>>)  :: Functor f => (a -> b) -> (x -> f a) -> x -> f b
-(<<$>) :: Applicative f => (x -> f (a -> b)) -> f a -> x -> f b
-(<$>>) :: Applicative f => f (a -> b) -> (x -> f a) -> x -> f b
-```
-And variants for higher-arity functions, `<<<$`, `$>>>`, `<<<$>`, `<$>>>`, `<<<<$`, `$>>>>`, `<<<<$>` and `<$>>>>`.
 Each of these also has variants with `$$`, `$$$` or `$$$$` in place of `$`.
 
 The defined operator families are:
@@ -66,7 +58,7 @@ The defined operator families are:
 	- Since `..` is reserved internally, its higher-order forms are `.:`, `.:.` and `.::`
 - Picking operators `|^` and `^|` which discard the left and right values, respectively
 	- These alias the hidden class members `<$`, `<*` and `*>`
-	- Note that `<<` and `>>` are completely hidden
+	- Note that `<<` and `>>` are still exported since `<|^>` and `<^|>` are specifically for `Applicative`
 - `§ :: a -> (a -> b) -> b` as flipped `$`
 	- Also `§§`, `§§§` and `§§§§` analogous to `$$`, `$$$` and `$$$$`
 	- Note that `<&>` is overwritten, use `<§` instead
