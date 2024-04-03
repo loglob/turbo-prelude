@@ -139,6 +139,22 @@ whenJustM x f = x >>= \y -> whenJust y f
 whenJustM_ :: Monad m => m (Maybe a) -> (a -> m b) -> m ()
 whenJustM_ x f = x >>= \y -> whenJust_ y f
 
+-- | Runs a computation only if no value is present
+whenNothing :: Monad m => Maybe a -> m b -> m (Maybe b)
+whenNothing Nothing  f = fmap Just f
+whenNothing (Just _) _ = pure Nothing
+
+-- | Runs a computation only if no value is present, discarding result
+whenNothing_ :: Monad m => Maybe a -> m b -> m ()
+whenNothing_ Nothing  f = void f
+whenNothing_ (Just _) _ = pure ()
+
+whenNothingM :: Monad m => m (Maybe a) -> m b -> m (Maybe b)
+whenNothingM x f = x >>= (`whenNothing` f)
+
+whenNothingM_ :: Monad m => m (Maybe a) -> m b -> m ()
+whenNothingM_ x f = x >>= (`whenNothing_` f)
+
 -- | Variant of `ifM` with only one branch
 whenM :: Monad m => m Bool -> m a -> m (Maybe a)
 whenM x f = ifM x (fmap Just f) (return Nothing)
