@@ -343,20 +343,24 @@ a &&& b = \x -> a x && b x
 {-# INLINE (|||) #-}
 a ||| b = \x -> a x || b x
 
+infixl 7 /^
 -- | Integer division rounding up
 (/^) :: Integral a => a -> a -> a
 a /^ b = signum (a `mod` b) + a `div` b
 
+infixr 6 <>?
 -- | Semigroup operation with one-sided maybe
 (<>?) :: Semigroup a => a -> Maybe a -> a
 x <>? Nothing = x
 x <>? Just y = x <> y
 
+infixl 6 ?<>
 -- | Semigroup operation with one-sided maybe
 (?<>) :: Semigroup a => Maybe a -> a -> a
 Nothing ?<> y = y
 Just x  ?<> y = x <> y
 
+infixl 1 >>~
 -- | Result-ignoring variant of `>>=` (has nothing to do with the `~`-family)
 (>>~) :: Monad m => m a -> (a -> m ()) -> m a
 x >>~ f = x >>= \y -> f y <|^ y
