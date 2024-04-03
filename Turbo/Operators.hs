@@ -356,3 +356,7 @@ x <>? Just y = x <> y
 (?<>) :: Semigroup a => Maybe a -> a -> a
 Nothing ?<> y = y
 Just x  ?<> y = x <> y
+
+-- | Result-ignoring variant of `>>=` (has nothing to do with the `~`-family)
+(>>~) :: Monad m => m a -> (a -> m ()) -> m a
+x >>~ f = x >>= \y -> f y <|^ y
