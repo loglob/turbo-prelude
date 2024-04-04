@@ -127,6 +127,10 @@ whenJust :: Monad m => Maybe a -> (a -> m (Maybe b)) -> m (Maybe b)
 whenJust Nothing  _ = return Nothing
 whenJust (Just x) f = f x
 
+whenJust' :: Monad m => Maybe a -> (a -> m b) -> m (Maybe b)
+whenJust' Nothing  _ = return Nothing
+whenJust' (Just x) f = Just `fmap` f x
+
 -- | Variant of `whenJust` that discards the result
 whenJust_ :: Monad m => Maybe a -> (a -> m b) -> m ()
 whenJust_ Nothing  _ = return ()
@@ -135,6 +139,10 @@ whenJust_ (Just x) f = void (f x)
 -- | `whenJust` inside a monad
 whenJustM :: Monad m => m (Maybe a) -> (a -> m (Maybe b)) -> m (Maybe b)
 whenJustM x f = x >>= \y -> whenJust y f
+
+-- | `whenJust'` inside a monad
+whenJustM' :: Monad m => m (Maybe a) -> (a -> m b) -> m (Maybe b)
+whenJustM' x f = x >>= \y -> whenJust' y f
 
 whenJustM_ :: Monad m => m (Maybe a) -> (a -> m b) -> m ()
 whenJustM_ x f = x >>= \y -> whenJust_ y f
