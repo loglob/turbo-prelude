@@ -19,7 +19,6 @@ module Data.Span (
     slice,
     slice#,
     sliceEnd,
-    sliceEnd#,
     trims,
 ) where
 import GHC.Arr as A
@@ -46,11 +45,105 @@ samePtr _         _         = False
 pos# :: Int# -> Bool
 pos# x = isTrue# (x >=# 0#)
 
+baseSpan# :: GenArray# a -> Span a
+baseSpan# (# a | #) = fromArray# a
+baseSpan# (# | a #) = fromSArray# a
+
 
 -- * Type definition
+-- ** Internal span class
+class ISpan s where
+    -- | A span of the entire array the input span slices
+    baseSpan :: s -> s
+    -- | Extends a span to the left and right by the given number.
+    --   Partial if indices are out-of-bounds.
+    extends# :: Int# -> Int# -> s -> s
+    -- | Undoes `slice`, returning its first arguments
+    isSliceOf :: s -> s -> Maybe Int
+    -- | The length of a span
+    length# :: s -> Int#
+    -- | Computes the span that is a slice of both given spans.
+    --   Returns `Nothing` when they don't overlap.
+    --   May return an empty span if the spans are exactly next to another.
+    overlap :: s -> s -> Maybe s
+    -- | Compares the underlying pointers of two spans
+    --   Returns `Nothing` if the spans point into different arrays,
+    --   compares the starting address of the spans otherwise.
+    ptrCmp :: s -> s -> Maybe Ordering
+    -- | Creates a sub-span from an offset and a length
+    --   Partial if indices are out of bounds
+    slice# :: Int# -> Int# -> s -> s
+    -- | Trims the $1 leftmost and $2 rightmost elements of $3
+    trims# :: Int# -> Int# -> s -> s
+
+slice :: ISpan s => Int -> Int -> s -> s
+slice (I# d) (I# n) = slice# d n
+trims :: ISpan s => Int -> Int -> s -> s
+trims (I# n) (I# m) = trims# n m
+extends :: ISpan s => Int -> Int -> s -> s
+extends (I# n) (I# m) = extends# n m
+
+-- | Like `slice`, but indexes from the end of the span rather than the start.
+--   Partial if indices are out of bounds.
+--   
+--   (!) The last element is at index 1
+sliceEnd :: ISpan s => Int -> Int -> s -> s
+sliceEnd (I# n) (I# m) s = slice# (length# s -# n) m s
+
+
+-- ** Array Span
 -- | A segment of an immutable array
 --   Permits pointer-equality and comparison, rather than structural equality
 data Span a = Span Int# Int# (GenArray# a)
+
+instance ISpan (Span a) where
+    baseSpan :: Span a -> Span a
+    baseSpan (Span _ _ xs) = baseSpan# xs
+
+    extends# :: Int# -> Int# -> Span a -> Span a
+    extends# l r (Span o n xs) = slice# (o -# l) (n +# r) (baseSpan# xs)
+
+    isSliceOf :: Span a -> Span a -> Maybe Int
+    isSliceOf (Span o l xs) (Span o' l' ys) = if samePtr xs ys && isTrue# (o >=# o') && isTrue# (o +# l <=# o' +# l')
+        then Just$ I# (o -# o')
+        else Nothing
+    
+    length# :: Span a -> Int#
+    length# (Span _ l _) = l
+
+    -- | Computes the span that is a slice of both given spans.
+    --   Returns `Nothing` when they don't overlap.
+    --   May return an empty span if the spans are exactly next to another.
+    overlap :: Span a -> Span a -> Maybe (Span a)
+    overlap (Span o l xs) (Span o' l' ys) = if samePtr xs ys
+        then
+            let oR = max# o o' in
+            let hR = min# (o +# l) (o' +# l') in
+            if isTrue# (oR <=# hR)
+                then Just (Span oR (hR -# oR) xs)
+                else Nothing
+        else Nothing
+     where
+        max# x y = if isTrue# (x ># y) then x else y
+        min# x y = if isTrue# (x <# y) then x else y
+
+    ptrCmp :: Span a -> Span a -> Maybe Ordering
+    ptrCmp (Span o _ xs) (Span p _ ys) = case samePtr xs ys of
+        True | isTrue# (o <# p) -> Just LT
+            | isTrue# (o ># p) -> Just GT
+            | otherwise        -> Just EQ
+        False -> Nothing
+
+    slice# :: Int# -> Int# -> Span a -> Span a
+    slice# d n (Span o l xs) = if pos# d && pos# n && isTrue# (d +# n <=# l)
+        then Span (o +# d) n xs
+        else error "slice indices out of bounds"
+    
+    trims# :: Int# -> Int# -> Span a -> Span a
+    trims# l r (Span o n xs) = let n' = n -# r -# l in
+        if pos# l && pos# r && pos# n'
+            then Span (o +# l) n' xs
+            else error "trims offset out of bounds"
 
 instance Foldable Span where
     foldl :: forall a b. (b -> a -> b) -> b -> Span a -> b
@@ -128,87 +221,3 @@ at :: Span a -> Int -> Maybe a
 at (Span o l xs) (I# i) = if pos# i && isTrue# (i <# l)
     then Just (xs `at#` (i +# o))
     else Nothing
-
--- | Compares the underlying pointers of two spans
---   Returns `Nothing` if the spans point into different arrays,
---   compares the starting address of the spans otherwise.
-ptrCmp :: Span a -> Span a -> Maybe Ordering
-ptrCmp (Span o _ xs) (Span p _ ys) = case samePtr xs ys of
-    True | isTrue# (o <# p) -> Just LT
-         | isTrue# (o ># p) -> Just GT
-         | otherwise        -> Just EQ
-    False -> Nothing
-
-
--- * Slicing Functions
-slice# :: Int# -> Int# -> Span a -> Span a
-slice# d n (Span o l xs) = if pos# d && pos# n && isTrue# (d +# n <=# l)
-    then Span (o +# d) n xs
-    else error "slice indices out of bounds"
-
--- | Creates a sub-span from an offset and a length
---   Partial if indices are out of bounds
-slice :: Int -> Int -> Span a -> Span a
-slice (I# d) (I# n) = slice# d n
-
-sliceEnd# :: Int# -> Int# -> Span a -> Span a
-sliceEnd# d n (Span o l xs) = if pos# n && isTrue# (n <=# d) && isTrue# (d <=# l)
-    then Span (o +# l -# d) n xs
-    else error "sliceEnd indices out of bounds"
-
--- | Like `slice`, but indexes from the end of the span rather than the start.
---   Partial if indices are out of bounds.
---   
---   (!) The last element is at index 1
-sliceEnd :: Int -> Int -> Span a -> Span a
-sliceEnd (I# n) (I# m) = sliceEnd# n m
-
-trims# :: Int# -> Int# -> Span a -> Span a
-trims# l r (Span o n xs) = let n' = n -# r -# l in
-    if pos# l && pos# r && pos# n'
-        then Span (o +# l) n' xs
-        else error "trims offset out of bounds"
-
--- | Trims the $1 leftmost and $2 rightmost elements of $3
-trims :: Int -> Int -> Span a -> Span a
-trims (I# l) (I# r) = trims# l r
-
--- | Computes the span that is a slice of both given spans.
---   Returns `Nothing` when they don't overlap.
---   May return an empty span if the spans are exactly next to another.
-overlap :: Span a -> Span a -> Maybe (Span a)
-overlap (Span o l xs) (Span o' l' ys) = if samePtr xs ys
-    then
-        let oR = max# o o' in
-        let hR = min# (o +# l) (o' +# l') in
-        if isTrue# (oR <=# hR)
-            then Just (Span oR (hR -# oR) xs)
-            else Nothing
-    else Nothing
- where
-    max# x y = if isTrue# (x ># y) then x else y
-    min# x y = if isTrue# (x <# y) then x else y
-
-
--- * Un-slicing operators
--- | Undoes `slice`, returning its first arguments
-isSliceOf :: Span a -> Span a -> Maybe Int
-isSliceOf (Span o l xs) (Span o' l' ys) = if samePtr xs ys && isTrue# (o >=# o') && isTrue# (o +# l <=# o' +# l')
-    then Just$ I# (o -# o')
-    else Nothing
-
-baseSpan# :: GenArray# a -> Span a
-baseSpan# (# a | #) = fromArray# a
-baseSpan# (# | a #) = fromSArray# a
-
--- | A span of the entire array the input span slices
-baseSpan :: Span a -> Span a
-baseSpan (Span _ _ xs) = baseSpan# xs
-
-extends# :: Span a -> Int# -> Int# -> Span a
-extends# (Span o n xs) l r = slice# (o -# l) (n +# r) (baseSpan# xs)
-
--- | Extends a span to the left and right by the given number.
---   Partial if indices are out-of-bounds.
-extends :: Span a -> Int -> Int -> Span a
-extends sp (I# l) (I# r) = extends# sp l r
