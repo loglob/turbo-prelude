@@ -8,7 +8,6 @@ module Data.Span (
     at,
     baseSpan,
     extends,
-    extends#,
     fromArray,
     fromArray#,
     fromList,
@@ -17,7 +16,6 @@ module Data.Span (
     overlap,
     ptrCmp,
     slice,
-    slice#,
     sliceEnd,
     trims,
 ) where
@@ -57,11 +55,11 @@ class ISpan s where
     baseSpan :: s -> s
     -- | Extends a span to the left and right by the given number.
     --   Partial if indices are out-of-bounds.
-    extends# :: Int# -> Int# -> s -> s
+    extends :: Int -> Int -> s -> s
     -- | Undoes `slice`, returning its first arguments
     isSliceOf :: s -> s -> Maybe Int
     -- | The length of a span
-    length# :: s -> Int#
+    size :: s -> Int
     -- | Computes the span that is a slice of both given spans.
     --   Returns `Nothing` when they don't overlap.
     --   May return an empty span if the spans are exactly next to another.
@@ -72,24 +70,16 @@ class ISpan s where
     ptrCmp :: s -> s -> Maybe Ordering
     -- | Creates a sub-span from an offset and a length
     --   Partial if indices are out of bounds
-    slice# :: Int# -> Int# -> s -> s
+    slice :: Int -> Int -> s -> s
     -- | Trims the $1 leftmost and $2 rightmost elements of $3
-    trims# :: Int# -> Int# -> s -> s
-
-slice :: ISpan s => Int -> Int -> s -> s
-slice (I# d) (I# n) = slice# d n
-trims :: ISpan s => Int -> Int -> s -> s
-trims (I# n) (I# m) = trims# n m
-extends :: ISpan s => Int -> Int -> s -> s
-extends (I# n) (I# m) = extends# n m
+    trims :: Int -> Int -> s -> s
 
 -- | Like `slice`, but indexes from the end of the span rather than the start.
 --   Partial if indices are out of bounds.
 --   
 --   (!) The last element is at index 1
 sliceEnd :: ISpan s => Int -> Int -> s -> s
-sliceEnd (I# n) (I# m) s = slice# (length# s -# n) m s
-
+sliceEnd n m s = slice (size s - n) m s
 
 -- ** Array Span
 -- | A segment of an immutable array
@@ -100,16 +90,16 @@ instance ISpan (Span a) where
     baseSpan :: Span a -> Span a
     baseSpan (Span _ _ xs) = baseSpan# xs
 
-    extends# :: Int# -> Int# -> Span a -> Span a
-    extends# l r (Span o n xs) = slice# (o -# l) (n +# r) (baseSpan# xs)
+    extends :: Int -> Int -> Span a -> Span a
+    extends (I# l) (I# r) (Span o n xs) = slice (I# (o -# l)) (I# (n +# r)) (baseSpan# xs)
 
     isSliceOf :: Span a -> Span a -> Maybe Int
     isSliceOf (Span o l xs) (Span o' l' ys) = if samePtr xs ys && isTrue# (o >=# o') && isTrue# (o +# l <=# o' +# l')
         then Just$ I# (o -# o')
         else Nothing
     
-    length# :: Span a -> Int#
-    length# (Span _ l _) = l
+    size :: Span a -> Int
+    size (Span _ l _) = I# l
 
     -- | Computes the span that is a slice of both given spans.
     --   Returns `Nothing` when they don't overlap.
@@ -134,13 +124,13 @@ instance ISpan (Span a) where
             | otherwise        -> Just EQ
         False -> Nothing
 
-    slice# :: Int# -> Int# -> Span a -> Span a
-    slice# d n (Span o l xs) = if pos# d && pos# n && isTrue# (d +# n <=# l)
+    slice :: Int -> Int -> Span a -> Span a
+    slice (I# d) (I# n) (Span o l xs) = if pos# d && pos# n && isTrue# (d +# n <=# l)
         then Span (o +# d) n xs
         else error "slice indices out of bounds"
     
-    trims# :: Int# -> Int# -> Span a -> Span a
-    trims# l r (Span o n xs) = let n' = n -# r -# l in
+    trims :: Int -> Int -> Span a -> Span a
+    trims (I# l) (I# r) (Span o n xs) = let n' = n -# r -# l in
         if pos# l && pos# r && pos# n'
             then Span (o +# l) n' xs
             else error "trims offset out of bounds"
