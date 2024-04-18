@@ -156,9 +156,6 @@ instance Foldable Span where
 instance Show a => Show (Span a) where
     showsPrec p xs = showsPrec p (toList xs)
 
-instance Eq (Span a) where
-    (Span o l xs) == (Span o' l' ys) = samePtr xs ys && isTrue# (o ==# o') && isTrue# (l ==# l')
-
 
 -- * Construction
 -- | Aliases an array as a span.
