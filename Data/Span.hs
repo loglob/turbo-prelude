@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GADTs #-}
 module Data.Span (
     ISpan(..),
     Span(),
@@ -13,11 +14,13 @@ module Data.Span (
     fromSArray#,
     sliceEnd,
     trims,
+    fromListU,
+    fromBytes#,
 ) where
 import Control.Extra
 import Control.Lens
 import Data.Array.Byte
-import Data.Primitive (Prim(sizeOfType#, readByteArray#, writeByteArray#, indexByteArray#))
+import Data.Primitive (Prim(sizeOfType#, writeByteArray#, indexByteArray#))
 import Data.Proxy
 import Data.Text.Internal as T
 import GHC.Arr as A
@@ -25,7 +28,7 @@ import GHC.Base
 import GHC.Exts (resizeSmallMutableArray#)
 import GHC.ST
 import qualified Data.Text as T(length, measureOff)
-import Turbo.RootPrelude
+import Turbo.RootPrelude hiding (for)
 
 -- * Internals
 -- | Permit either small or regular arrays
@@ -169,21 +172,30 @@ instance AtConst (Span a) where
         then Just (at# xs (o +# i))
         else Nothing
 
+-- | tail-recursive for loop with foldl-operator
+--   Bounds given by low (inclusive) and high (exclusive) value 
+for :: forall a b. (b -> a -> b) -> (Int# -> a) -> Int# -> Int# -> b -> b
+for op at i0 hi = loop i0 where
+    loop :: Int# -> b -> b
+    loop i b = if isTrue# (i <# hi)
+        then loop (i +# 1#) (b `op` at i)
+        else b
+
+-- | tail-recursive reverse for loop with foldr-operator
+--   Bounds given by low (inclusive) and high (exclusive) value 
+forr :: forall a b. (a -> b -> b) -> (Int# -> a) -> Int# -> Int# -> b -> b
+forr op at lo hi = loop (hi -# 1#) where
+    loop :: Int# -> b -> b
+    loop i b = if isTrue# (i >=# lo)
+        then loop (i -# 1#) (at i `op` b)
+        else b
+
+
 instance Foldable Span where
     foldl :: forall a b. (b -> a -> b) -> b -> Span a -> b
-    foldl f b0 (Span o l xs) = for o b0 where
-        n = o +# l
-        for :: Int# -> b -> b
-        for i b = if isTrue# (i <# n)
-            then for (i +# 1#)$ f b (xs `at#` i)
-            else b
+    foldl f b0 (Span o l xs) = for f (at# xs) o (o +# l) b0
     foldr :: forall a b. (a -> b -> b) -> b -> Span a -> b
-    foldr f b0 (Span o l xs) = forr h b0 where
-        h = o +# l -# 1#
-        forr :: Int# -> b -> b
-        forr i b = if isTrue# (i <# o)
-            then b
-            else forr (i -# 1#)$ f (xs `at#` i) b
+    foldr f b0 (Span o l xs) = forr f (at# xs) o (o +# l) b0
     null (Span _ l _) = isTrue# (l ==# 0#)
     length (Span _ l _) = I# l
 
@@ -193,19 +205,20 @@ instance Show a => Show (Span a) where
 -- ** Unpacked Array Spans
 -- | Segment of a byte array.
 --   Offers more compact and efficient representation, but doesn't support laziness.
-data USpan a =
+data USpan a where
+    -- Use a GADT to bind the `Prim` constraint into the constructor, otherwise classes on USpan aren't doable
     -- | Offsets/length in numbers of elements, NOT bytes
-    USpan Int# Int# ByteArray# 
+    USpan :: Prim a => Int# -> Int# -> ByteArray# -> USpan a
 
-baseSize# :: forall a. Prim a => USpan a -> Int#
-baseSize# (USpan _ _ arr) = sizeofByteArray# arr `divInt#` sizeOfType# (Proxy :: Proxy a)
+capacity :: Prim a => Proxy a -> ByteArray# -> Int#
+capacity p bs = sizeofByteArray# bs `divInt#` sizeOfType# p
 
 -- looks almost exactly like the one for Span, but just different enough to not be generalizable further
-instance Prim a => ISpan (USpan a) where
+instance ISpan (USpan a) where
     baseSpan :: USpan a -> USpan a
-    baseSpan u@(USpan _ _ arr) = USpan 0# (baseSize# u) arr
+    baseSpan (USpan _ _ arr) = fromBytes# arr
     extends :: Int -> Int -> USpan a -> USpan a
-    extends (I# n) (I# m) u@(USpan o l arr) = case _extends n m o l (baseSize# u) of
+    extends (I# n) (I# m) (USpan o l arr) = case _extends n m o l (capacity (Proxy :: Proxy a) arr) of
             (# -1#, _ #) -> error "extends indices out of range"
             (# o', l' #) -> USpan o' l' arr
     isSliceOf :: USpan a -> USpan a -> Maybe Int
@@ -230,11 +243,22 @@ instance Prim a => ISpan (USpan a) where
 type instance IxValue (USpan a) = a
 type instance Index (USpan a) = Int
 
-instance Prim a => AtConst (USpan a) where
+instance AtConst (USpan a) where
   (@) :: USpan a -> Int -> Maybe a
   (USpan o l xs) @ (I# i) = if pos# i && isTrue# (i <# l)
         then Just (indexByteArray# xs (i +# o))
         else Nothing
+
+instance Foldable USpan where
+    foldl :: (b -> a -> b) -> b -> USpan a -> b
+    foldl f b0 (USpan o l bs) = for f (indexByteArray# bs) o (o +# l) b0
+    foldr :: (a -> b -> b) -> b -> USpan a -> b
+    foldr f b0 (USpan o l bs) = forr f (indexByteArray# bs) o (o +# l) b0
+    null (USpan _ l _) = isTrue# (l <=# 0#)
+    length (USpan _ l _) = I# l
+
+instance Show a => Show (USpan a) where
+    showsPrec n = showsPrec n .toList
 
 -- ** Text Span
 -- | Variant of `measureOff` that checks the text is long enough
@@ -308,6 +332,9 @@ fromArray# a = Span 0# (sizeofArray# a) (# a | #)
 fromSArray# :: SmallArray# a -> Span a
 fromSArray# a = Span 0# (sizeofSmallArray# a) (# | a #)
 
+fromBytes# :: forall a. Prim a => ByteArray# -> USpan a
+fromBytes# bs = USpan 0# (capacity (Proxy :: Proxy a) bs) bs
+
 -- | Allocates a list to a small array, then creates an equivalent span
 fromList :: forall a. [a] -> Span a
 fromList = \xs -> runST (ST (f xs))
@@ -338,5 +365,27 @@ fromList = \xs -> runST (ST (f xs))
             let s' = writeSmallArray# arr l x s in
             copy s' c arr (l +# 1#) xs
 
--- fromListU :: forall a. Prim a => [a] -> USpan a
--- fromListU = _
+-- | Allocates a list of primitives to a byte array, then creates an equivalent unboxed span
+fromListU :: forall a. Prim a => [a] -> USpan a
+fromListU = \xs -> runST (ST (f xs))
+ where
+    f :: [a] -> State# s -> (# State# s, USpan a #)
+    f xs s =
+            let n = 128# in
+            let !(# s1, mut #) = newByteArray# (n *# siz) s in
+            let !(# s2, cop, l #) = copy s1 n mut 0# xs in
+            (# s2, USpan 0# l cop #)
+    siz = sizeOfType# (Proxy :: Proxy a)
+    copy :: State# s -> Int# -> MutableByteArray# s -> Int# -> [a] -> (# State# s, ByteArray#, Int# #)
+    copy s _ arr l    []  =
+            let !(# s1, arr1 #) = resizeMutableByteArray# arr (l *# siz) s in
+            let !(# s2, arr2 #) = unsafeFreezeByteArray# arr1 s1 in
+            (# s2, arr2, l #)
+    copy s c arr l    xs  | isTrue# (c ==# l) =
+            let l' = 2# *# l in
+            let !(# s', arr' #) = resizeMutableByteArray# arr (l' *# siz) s in
+            copy s' l' arr' l xs
+    copy s c arr l (x:xs) =
+            let s' = writeByteArray# arr l x s in
+            copy s' c arr (l +# 1#) xs
+
