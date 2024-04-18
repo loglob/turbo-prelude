@@ -71,8 +71,6 @@ class ISpan s where
     -- | Creates a sub-span from an offset and a length
     --   Partial if indices are out of bounds
     slice :: Int -> Int -> s -> s
-    -- | Trims the $1 leftmost and $2 rightmost elements of $3
-    trims :: Int -> Int -> s -> s
 
 -- | Like `slice`, but indexes from the end of the span rather than the start.
 --   Partial if indices are out of bounds.
@@ -80,6 +78,12 @@ class ISpan s where
 --   (!) The last element is at index 1
 sliceEnd :: ISpan s => Int -> Int -> s -> s
 sliceEnd n m s = slice (size s - n) m s
+
+-- | Trims the $1 leftmost and $2 rightmost elements of $3
+trims :: ISpan s => Int -> Int -> s -> s
+trims l r s = let z = size s in if l < 0 || r < 0 || l+r > z
+    then error "trims indices out of range"
+    else slice l (size s - l - r) s
 
 -- ** Array Span
 -- | A segment of an immutable array
@@ -128,12 +132,6 @@ instance ISpan (Span a) where
     slice (I# d) (I# n) (Span o l xs) = if pos# d && pos# n && isTrue# (d +# n <=# l)
         then Span (o +# d) n xs
         else error "slice indices out of bounds"
-    
-    trims :: Int -> Int -> Span a -> Span a
-    trims (I# l) (I# r) (Span o n xs) = let n' = n -# r -# l in
-        if pos# l && pos# r && pos# n'
-            then Span (o +# l) n' xs
-            else error "trims offset out of bounds"
 
 instance Foldable Span where
     foldl :: forall a b. (b -> a -> b) -> b -> Span a -> b
