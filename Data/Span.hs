@@ -4,7 +4,8 @@
 {-# LANGUAGE PolyKinds #-}
 module Data.Span (
     ISpan(..),
-    Span,
+    Span(),
+    USpan(),
     at,
     fromArray,
     fromArray#,
@@ -15,12 +16,14 @@ module Data.Span (
 ) where
 import Data.Array.Byte
 import Data.Text.Internal as T
+import Data.Primitive (Prim(sizeOfType#, readByteArray#, writeByteArray#))
 import GHC.Arr as A
 import GHC.Base
 import GHC.Exts (resizeSmallMutableArray#)
 import GHC.ST
 import qualified Data.Text as T(length, measureOff)
 import Turbo.RootPrelude
+import Data.Proxy
 
 -- * Internals
 -- | Permit either small or regular arrays
@@ -46,7 +49,9 @@ baseSpan# (# | a #) = fromSArray# a
 
 
 -- * Type definition
--- ** Internal span class
+-- ** Span class
+-- | A collection type that permits comparing the underlying pointers,
+--   and creating 0-copy slices
 class ISpan s where
     -- | A span of the entire array the input span slices
     baseSpan :: s -> s
@@ -59,7 +64,7 @@ class ISpan s where
     size :: s -> Int
     -- | Computes the span that is a slice of both given spans.
     --   Returns `Nothing` when they don't overlap.
-    --   May return an empty span if the spans are exactly next to another.
+    --   Returns an empty span if the spans are exactly next to another.
     overlap :: s -> s -> Maybe s
     -- | Compares the underlying pointers of two spans
     --   Returns `Nothing` if the spans point into different arrays,
@@ -87,6 +92,42 @@ trims l r s = let z = size s in if l < 0 || r < 0 || l+r > z
 --   Permits pointer-equality and comparison, rather than structural equality
 data Span (a :: TYPE (BoxedRep l)) = Span Int# Int# (GenArray# a)
 
+-- | Generic helper for `extends`. Takes left extension, right extension, cur offset, cur length, total capacity
+_extends :: Int# -> Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
+_extends n m o l z = if pos# n && pos# m && isTrue# (n <=# o) && isTrue# (n +# m +# o +# l <=# z)
+    then (# o -# n, l +# n +# m #)
+    else (# -1#, -1# #)
+
+-- | Generic helper for `isSliceOf` that takes (offset, length) pairs
+_isSliceOf :: Int# -> Int# -> Int# -> Int# -> Maybe Int
+_isSliceOf o l o' l' = if isTrue# (o >=# o') && isTrue# (o +# l <=# o' +# l')
+        then Just (I# (o -# o'))
+        else Nothing
+
+-- | Generic helper or `overlap` on (offset, length) pairs.
+--   Returns (-1,-1) to signal that there is no overlap
+_overlap :: Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
+_overlap o l o' l' =
+        let oR = max# o o' in
+        let hR = min# (o +# l) (o' +# l') in
+        if isTrue# (oR <=# hR)
+            then (# oR, (hR -# oR) #)
+            else (# -1#, -1# #)
+     where
+        max# x y = if isTrue# (x ># y) then x else y
+        min# x y = if isTrue# (x <# y) then x else y
+
+cmp# :: Int# -> Int# -> Ordering
+cmp# x y | isTrue# (x <# y) = LT
+         | isTrue# (x ># y) = GT
+         | otherwise        = EQ
+
+-- | Bounds-checks a slicing operation
+_slice :: Int# -> Int# -> Int# -> Int# ->Int#
+_slice d n o l = if pos# d && pos# n && isTrue# (d +# n <=# l)
+        then o +# d
+        else -1#
+
 instance ISpan (Span a) where
     baseSpan :: Span a -> Span a
     baseSpan (Span _ _ xs) = baseSpan# xs
@@ -95,40 +136,27 @@ instance ISpan (Span a) where
     extends (I# l) (I# r) (Span o n xs) = slice (I# (o -# l)) (I# (n +# r)) (baseSpan# xs)
 
     isSliceOf :: Span a -> Span a -> Maybe Int
-    isSliceOf (Span o l xs) (Span o' l' ys) = if samePtr xs ys && isTrue# (o >=# o') && isTrue# (o +# l <=# o' +# l')
-        then Just$ I# (o -# o')
-        else Nothing
+    isSliceOf (Span o l xs) (Span o' l' ys) = if samePtr xs ys then _isSliceOf o l o' l' else Nothing
     
     size :: Span a -> Int
     size (Span _ l _) = I# l
 
-    -- | Computes the span that is a slice of both given spans.
-    --   Returns `Nothing` when they don't overlap.
-    --   May return an empty span if the spans are exactly next to another.
     overlap :: Span a -> Span a -> Maybe (Span a)
     overlap (Span o l xs) (Span o' l' ys) = if samePtr xs ys
-        then
-            let oR = max# o o' in
-            let hR = min# (o +# l) (o' +# l') in
-            if isTrue# (oR <=# hR)
-                then Just (Span oR (hR -# oR) xs)
-                else Nothing
+        then case _overlap o l o' l' of
+            (# -1#, _ #) -> Nothing
+            (# oR, lR #) -> Just (Span oR lR xs)
         else Nothing
-     where
-        max# x y = if isTrue# (x ># y) then x else y
-        min# x y = if isTrue# (x <# y) then x else y
 
     ptrCmp :: Span a -> Span a -> Maybe Ordering
     ptrCmp (Span o _ xs) (Span p _ ys) = case samePtr xs ys of
-        True | isTrue# (o <# p) -> Just LT
-            | isTrue# (o ># p) -> Just GT
-            | otherwise        -> Just EQ
+        True -> Just (cmp# o p)
         False -> Nothing
 
     slice :: Int -> Int -> Span a -> Span a
-    slice (I# d) (I# n) (Span o l xs) = if pos# d && pos# n && isTrue# (d +# n <=# l)
-        then Span (o +# d) n xs
-        else error "slice indices out of bounds"
+    slice (I# d) (I# n) (Span o l xs) = case _slice d n o l of
+        -1# -> error "slice indices out of bounds"
+        oR -> Span oR n xs
 
 instance Foldable Span where
     foldl :: forall a b. (b -> a -> b) -> b -> Span a -> b
@@ -150,6 +178,43 @@ instance Foldable Span where
 
 instance Show a => Show (Span a) where
     showsPrec p xs = showsPrec p (toList xs)
+
+-- ** Unpacked Array Spans
+-- | Segment of a byte array.
+--   Offers more compact and efficient representation, but doesn't support laziness.
+data USpan a =
+    -- | Offsets/length in numbers of elements, NOT bytes
+    USpan Int# Int# ByteArray# 
+
+baseSize# :: forall a. Prim a => USpan a -> Int#
+baseSize# (USpan _ _ arr) = sizeofByteArray# arr `divInt#` sizeOfType# (Proxy :: Proxy a)
+
+-- looks almost exactly like the one for Span, but just different enough to not be generalizable further
+instance Prim a => ISpan (USpan a) where
+    baseSpan :: USpan a -> USpan a
+    baseSpan u@(USpan _ _ arr) = USpan 0# (baseSize# u) arr
+    extends :: Int -> Int -> USpan a -> USpan a
+    extends (I# n) (I# m) u@(USpan o l arr) = case _extends n m o l (baseSize# u) of
+            (# -1#, _ #) -> error "extends indices out of range"
+            (# o', l' #) -> USpan o' l' arr
+    isSliceOf :: USpan a -> USpan a -> Maybe Int
+    isSliceOf (USpan o n xs) (USpan p m ys) = if isTrue# (unsafePtrEquality# xs ys) then _isSliceOf o n p m else Nothing
+    size :: USpan a -> Int
+    size (USpan _ n _) = I# n
+    overlap :: USpan a -> USpan a -> Maybe (USpan a)
+    overlap (USpan o n xs) (USpan p m ys) = case unsafePtrEquality# xs ys of
+        1# -> case _overlap o n p m of
+            (# -1#, _ #) -> Nothing
+            (# oR, lR #) -> Just (USpan oR lR xs)
+        _  -> Nothing
+    ptrCmp :: USpan a -> USpan a -> Maybe Ordering
+    ptrCmp (USpan o _ xs) (USpan p _ ys) = case unsafePtrEquality# xs ys of
+        1# -> Just (cmp# o p)
+        _  -> Nothing
+    slice :: Int -> Int -> USpan a -> USpan a
+    slice (I# d) (I# n) (USpan o l xs) = case _slice d n o l of
+        -1# -> error "slice index out of range"
+        oR  -> USpan oR n xs
 
 -- ** Text Span
 -- | Variant of `measureOff` that checks the text is long enough
@@ -239,7 +304,7 @@ fromList = \xs -> runST (ST (f xs))
     --   - $3: Current array
     --   - $4: Number of inserted entries
     --   - $5: List to copy
-    --   Returns: ( state thread, finished array, array length )
+    --   Returns: ( state thread, finished array )
     copy :: State# s -> Int# -> SmallMutableArray# s a -> Int# -> [a] -> (# State# s, SmallArray# a #)
     copy s _ arr l    []  =
             let !(# s1, arr1 #) = resizeSmallMutableArray# arr l undefined s in
@@ -253,6 +318,8 @@ fromList = \xs -> runST (ST (f xs))
             let s' = writeSmallArray# arr l x s in
             copy s' c arr (l +# 1#) xs
 
+-- fromListU :: forall a. Prim a => [a] -> USpan a
+-- fromListU = _
 
 -- * Misc functions
 -- | Indexes into a span
