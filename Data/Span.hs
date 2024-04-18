@@ -22,12 +22,12 @@ import Control.Lens
 import Data.Array.Byte
 import Data.Primitive (Prim(sizeOfType#, writeByteArray#, indexByteArray#))
 import Data.Proxy
+import qualified Data.Text as T(length, measureOff)
 import Data.Text.Internal as T
 import GHC.Arr as A
 import GHC.Base
 import GHC.Exts (resizeSmallMutableArray#)
 import GHC.ST
-import qualified Data.Text as T(length, measureOff)
 import Turbo.RootPrelude hiding (for)
 
 -- * Internals

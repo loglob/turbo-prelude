@@ -3,8 +3,8 @@
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
 module Control.Extra where
 import Control.Lens
-import Turbo.RootPrelude
 import Control.Monad.State
+import Turbo.RootPrelude
 
 -- | A weaker variant of `At` that cannot be written to 
 class AtConst m where

@@ -1,6 +1,6 @@
 module Turbo.ExtraTH where
-import Turbo.RootPrelude
 import Language.Haskell.TH
+import Turbo.RootPrelude
 
 infixr 0 →
 -- | Shorthand for constructing function types

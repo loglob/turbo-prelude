@@ -1,11 +1,10 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE ExtendedLiterals #-}
-{-# LANGUAGE BangPatterns #-}
 module Turbo.Cast where
 import Data.Bits
 import Turbo.RootPrelude
-import GHC.Exts
 import GHC.Err (error)
+import GHC.Exts
 
 -- * Sign Elimination
 -- | Bit-casts int to word

@@ -1,10 +1,10 @@
 module Turbo.Extra where
-import Turbo.RootPrelude
 import qualified Data.Foldable as F
 import qualified Data.Functor as Fu
 import qualified Data.Text as T
-import Turbo.Operators ((<++>), (>:|>), (<:|))
 import Turbo.ExtraTH
+import Turbo.Operators ((<++>), (>:|>), (<:|))
+import Turbo.RootPrelude
 
 -- * Misc functions
 -- | Applies the same function on both sides of a Bifunctor

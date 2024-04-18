@@ -1,15 +1,14 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-{-# LANGUAGE BangPatterns #-}
 
 -- | Non-standard but internally consistent operator syntax for functors/applicative/monads
 
 module Turbo.Operators where
-import Turbo.OperatorsTH
 import qualified Control.Applicative as A
 import qualified Control.Monad as M
 import qualified Data.Functor as F
-import Turbo.RootPrelude
 import GHC.Base (seq)
+import Turbo.OperatorsTH
+import Turbo.RootPrelude
 
 -- * $-family
 infixr 0 $$, $$$, $$$$
@@ -320,7 +319,7 @@ Nothing ??> x = x
 -- | Runs a second computation only if the first produced no value
 --
 --  Note that it requires a Monad for short-cutting.
---  For an Applicative version that is eager in its second computation, use `liftA2 (?!)`
+--  For an Applicative version that is eager in its second computation, use `liftA2 (??)`
 (<??>) :: Monad f => f (Maybe a) -> f (Maybe a) -> f (Maybe a)
 {-# INLINE (<??>) #-}
 x <??> y = x >>= \case

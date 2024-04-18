@@ -1,10 +1,10 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst, makeTuplePaste) where
-import Language.Haskell.TH
-import Turbo.RootPrelude
 import Data.Char (isUpper)
 import GHC.Err (error)
+import Language.Haskell.TH
 import Turbo.ExtraTH ((→))
+import Turbo.RootPrelude
 
 -- | The context placed on a type signature
 type OpInfo = (Name, Cxt, Type, Type, Type)
