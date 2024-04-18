@@ -2,11 +2,11 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 module Data.Span (
     ISpan(..),
     Span(),
     USpan(),
-    at,
     fromArray,
     fromArray#,
     fromList,
@@ -14,16 +14,18 @@ module Data.Span (
     sliceEnd,
     trims,
 ) where
+import Control.Extra
+import Control.Lens
 import Data.Array.Byte
+import Data.Primitive (Prim(sizeOfType#, readByteArray#, writeByteArray#, indexByteArray#))
+import Data.Proxy
 import Data.Text.Internal as T
-import Data.Primitive (Prim(sizeOfType#, readByteArray#, writeByteArray#))
 import GHC.Arr as A
 import GHC.Base
 import GHC.Exts (resizeSmallMutableArray#)
 import GHC.ST
 import qualified Data.Text as T(length, measureOff)
 import Turbo.RootPrelude
-import Data.Proxy
 
 -- * Internals
 -- | Permit either small or regular arrays
@@ -158,6 +160,15 @@ instance ISpan (Span a) where
         -1# -> error "slice indices out of bounds"
         oR -> Span oR n xs
 
+type instance IxValue (Span a) = a
+type instance Index (Span a) = Int
+
+instance AtConst (Span a) where
+  (@) :: Span a -> Int -> Maybe a
+  (Span o l xs) @ (I# i) = if pos# i && isTrue# (i <# l)
+        then Just (at# xs (o +# i))
+        else Nothing
+
 instance Foldable Span where
     foldl :: forall a b. (b -> a -> b) -> b -> Span a -> b
     foldl f b0 (Span o l xs) = for o b0 where
@@ -215,6 +226,15 @@ instance Prim a => ISpan (USpan a) where
     slice (I# d) (I# n) (USpan o l xs) = case _slice d n o l of
         -1# -> error "slice index out of range"
         oR  -> USpan oR n xs
+
+type instance IxValue (USpan a) = a
+type instance Index (USpan a) = Int
+
+instance Prim a => AtConst (USpan a) where
+  (@) :: USpan a -> Int -> Maybe a
+  (USpan o l xs) @ (I# i) = if pos# i && isTrue# (i <# l)
+        then Just (indexByteArray# xs (i +# o))
+        else Nothing
 
 -- ** Text Span
 -- | Variant of `measureOff` that checks the text is long enough
@@ -320,10 +340,3 @@ fromList = \xs -> runST (ST (f xs))
 
 -- fromListU :: forall a. Prim a => [a] -> USpan a
 -- fromListU = _
-
--- * Misc functions
--- | Indexes into a span
-at :: Span a -> Int -> Maybe a
-at (Span o l xs) (I# i) = if pos# i && isTrue# (i <# l)
-    then Just (xs `at#` (i +# o))
-    else Nothing

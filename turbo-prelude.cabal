@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.1.2.0
+version:            1.1.3.0
 
 synopsis: Alternate prelude and extra library
 
@@ -12,6 +12,7 @@ maintainer:   loglob
 library
     exposed-modules:
         Control.Attempt
+        Control.Extra
         Data.Or
         Data.SignedSet
         Data.Span
@@ -21,6 +22,8 @@ library
         base,
         containers,
         lens,
+        mtl,
+        primitive,
         template-haskell,
         text
     other-modules:
@@ -35,7 +38,9 @@ library
         InstanceSigs
         KindSignatures
         LambdaCase
+        MultiParamTypeClasses
         NoImplicitPrelude
+        RankNTypes
         ScopedTypeVariables
         TemplateHaskell
         TupleSections
