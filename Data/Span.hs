@@ -4,18 +4,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
 module Data.Span (
-    Span(),
+    ISpan(..),
+    Span,
     at,
-    baseSpan,
-    extends,
     fromArray,
     fromArray#,
     fromList,
     fromSArray#,
-    isSliceOf,
-    overlap,
-    ptrCmp,
-    slice,
     sliceEnd,
     trims,
 ) where
