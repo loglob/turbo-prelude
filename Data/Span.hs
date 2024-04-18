@@ -1,8 +1,7 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE UnboxedTuples #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 module Data.Span (
     ISpan(..),
     Span,
@@ -27,7 +26,7 @@ import Turbo.RootPrelude
 -- | Permit either small or regular arrays
 --  Differences should be negligible because they are immutable
 --  (I think they are only separate types because they could be thawed again) 
-type GenArray# a = (# Array# a | SmallArray# a #)
+type GenArray# (a :: TYPE (BoxedRep l)) = (# Array# a | SmallArray# a #)
 
 at# :: GenArray# a -> Int# -> a
 at# (# a | #) i = let !(# x #) = (indexArray# a i) in x
@@ -86,7 +85,7 @@ trims l r s = let z = size s in if l < 0 || r < 0 || l+r > z
 -- ** Array Span
 -- | A segment of an immutable array
 --   Permits pointer-equality and comparison, rather than structural equality
-data Span a = Span Int# Int# (GenArray# a)
+data Span (a :: TYPE (BoxedRep l)) = Span Int# Int# (GenArray# a)
 
 instance ISpan (Span a) where
     baseSpan :: Span a -> Span a
