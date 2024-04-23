@@ -23,9 +23,15 @@ mixins:
 I strongly recommend also adding these extensions:
 ```yml
 default-extensions:
-	BlockArguments,
-	LambdaCase,
+	BlockArguments
+	LambdaCase
 	TupleSections
+```
+or using the `GHC2021` language standard:
+```yml
+default-language: GHC2021
+default-extensions:
+	BlockArguments
 ```
 
 ## Custom Operators
