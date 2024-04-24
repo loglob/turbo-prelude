@@ -3,9 +3,8 @@ module Data.LargeText (LargeText (), Position (..), charAtPos, fromText, getLine
 
 import Control.Extra
 import Control.Lens (Index, IxValue)
+import Data.Internal.ISpan
 import Data.Primitive (ByteArray (..))
-import Data.Span
-import Data.SpanInternals
 import Data.Text qualified as T
 import Data.Text.Internal (Text (..))
 import GHC.Base
@@ -255,6 +254,12 @@ instance ISpan LargeText where
         let mC = sizeofSmallArray# ms
             !(I# z) = T.length $ finalChunk txt
          in LargeText bs ms 0# ((512# *# mC) +# z)
+
+    bounds :: LargeText -> LargeText -> Maybe LargeText
+    bounds a b =
+        if samePtrs a b
+            then let !(# o, l #) = _bounds `app` a `app` b in Just $ a{charOffset = o, charCount = l}
+            else Nothing
 
     extends :: Int -> Int -> LargeText -> LargeText
     extends (I# n) (I# m) txt@(LargeText bs ms o l) =

@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.1.6.0
+version:            1.1.7.0
 
 synopsis: Alternate prelude and extra library
 
@@ -28,7 +28,10 @@ library
         template-haskell,
         text
     other-modules:
-        Data.SpanInternals
+        Data.Internal.ISpan
+        Data.Internal.Span
+        Data.Internal.TextSpan
+        Data.Internal.USpan
         Turbo.Extra
         Turbo.ExtraTH
         Turbo.Operators
