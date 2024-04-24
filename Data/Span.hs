@@ -1,9 +1,3 @@
-{-# LANGUAGE MagicHash #-}
-{-# LANGUAGE UnboxedTuples #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE GADTs #-}
 module Data.Span (
     ISpan(..),
     Span(),
@@ -29,11 +23,12 @@ import GHC.Base
 import GHC.Exts (resizeSmallMutableArray#)
 import GHC.ST
 import Turbo.RootPrelude hiding (for)
+import Data.SpanInternals
 
 -- * Internals
 -- | Permit either small or regular arrays
 --  Differences should be negligible because they are immutable
---  (I think they are only separate types because they could be thawed again) 
+--  (I think they are only separate types because they could be thawed again)
 type GenArray# (a :: TYPE (BoxedRep l)) = (# Array# a | SmallArray# a #)
 
 at# :: GenArray# a -> Int# -> a
@@ -44,9 +39,6 @@ samePtr :: GenArray# a -> GenArray# a -> Bool
 samePtr (# x | #) (# y | #) = isTrue# (unsafePtrEquality# x y)
 samePtr (# | x #) (# | y #) = isTrue# (unsafePtrEquality# x y)
 samePtr _         _         = False
-
-pos# :: Int# -> Bool
-pos# x = isTrue# (x >=# 0#)
 
 baseSpan# :: GenArray# a -> Span a
 baseSpan# (# a | #) = fromArray# a
@@ -81,7 +73,7 @@ class ISpan s where
 
 -- | Like `slice`, but indexes from the end of the span rather than the start.
 --   Partial if indices are out of bounds.
---   
+--
 --   (!) The last element is at index 1
 sliceEnd :: ISpan s => Int -> Int -> s -> s
 sliceEnd n m s = slice (size s - n) m s
@@ -97,41 +89,6 @@ trims l r s = let z = size s in if l < 0 || r < 0 || l+r > z
 --   Permits pointer-equality and comparison, rather than structural equality
 data Span (a :: TYPE (BoxedRep l)) = Span Int# Int# (GenArray# a)
 
--- | Generic helper for `extends`. Takes left extension, right extension, cur offset, cur length, total capacity
-_extends :: Int# -> Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
-_extends n m o l z = if pos# n && pos# m && isTrue# (n <=# o) && isTrue# (n +# m +# o +# l <=# z)
-    then (# o -# n, l +# n +# m #)
-    else (# -1#, -1# #)
-
--- | Generic helper for `isSliceOf` that takes (offset, length) pairs
-_isSliceOf :: Int# -> Int# -> Int# -> Int# -> Maybe Int
-_isSliceOf o l o' l' = if isTrue# (o >=# o') && isTrue# (o +# l <=# o' +# l')
-        then Just (I# (o -# o'))
-        else Nothing
-
--- | Generic helper or `overlap` on (offset, length) pairs.
---   Returns (-1,-1) to signal that there is no overlap
-_overlap :: Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
-_overlap o l o' l' =
-        let oR = max# o o' in
-        let hR = min# (o +# l) (o' +# l') in
-        if isTrue# (oR <=# hR)
-            then (# oR, (hR -# oR) #)
-            else (# -1#, -1# #)
-     where
-        max# x y = if isTrue# (x ># y) then x else y
-        min# x y = if isTrue# (x <# y) then x else y
-
-cmp# :: Int# -> Int# -> Ordering
-cmp# x y | isTrue# (x <# y) = LT
-         | isTrue# (x ># y) = GT
-         | otherwise        = EQ
-
--- | Bounds-checks a slicing operation
-_slice :: Int# -> Int# -> Int# -> Int# ->Int#
-_slice d n o l = if pos# d && pos# n && isTrue# (d +# n <=# l)
-        then o +# d
-        else -1#
 
 instance ISpan (Span a) where
     baseSpan :: Span a -> Span a
@@ -142,7 +99,7 @@ instance ISpan (Span a) where
 
     isSliceOf :: Span a -> Span a -> Maybe Int
     isSliceOf (Span o l xs) (Span o' l' ys) = if samePtr xs ys then _isSliceOf o l o' l' else Nothing
-    
+
     size :: Span a -> Int
     size (Span _ l _) = I# l
 
@@ -168,25 +125,25 @@ type instance Index (Span a) = Int
 
 instance AtConst (Span a) where
   (@) :: Span a -> Int -> Maybe a
-  (Span o l xs) @ (I# i) = if pos# i && isTrue# (i <# l)
+  (Span o l xs) @ (I# i) = if i `geq#` 0# && i `lt#` l
         then Just (at# xs (o +# i))
         else Nothing
 
 -- | tail-recursive for loop with foldl-operator
---   Bounds given by low (inclusive) and high (exclusive) value 
+--   Bounds given by low (inclusive) and high (exclusive) value
 for :: forall a b. (b -> a -> b) -> (Int# -> a) -> Int# -> Int# -> b -> b
 for op at i0 hi = loop i0 where
     loop :: Int# -> b -> b
-    loop i b = if isTrue# (i <# hi)
-        then loop (i +# 1#) (b `op` at i)
+    loop i b = if i `lt#` hi
+        then loop (inc# i) (b `op` at i)
         else b
 
 -- | tail-recursive reverse for loop with foldr-operator
---   Bounds given by low (inclusive) and high (exclusive) value 
+--   Bounds given by low (inclusive) and high (exclusive) value
 forr :: forall a b. (a -> b -> b) -> (Int# -> a) -> Int# -> Int# -> b -> b
 forr op at lo hi = loop (hi -# 1#) where
     loop :: Int# -> b -> b
-    loop i b = if isTrue# (i >=# lo)
+    loop i b = if i `geq#` lo
         then loop (i -# 1#) (at i `op` b)
         else b
 
@@ -196,7 +153,7 @@ instance Foldable Span where
     foldl f b0 (Span o l xs) = for f (at# xs) o (o +# l) b0
     foldr :: forall a b. (a -> b -> b) -> b -> Span a -> b
     foldr f b0 (Span o l xs) = forr f (at# xs) o (o +# l) b0
-    null (Span _ l _) = isTrue# (l ==# 0#)
+    null (Span _ l _) = l `eq#` 0#
     length (Span _ l _) = I# l
 
 instance Show a => Show (Span a) where
@@ -245,7 +202,7 @@ type instance Index (USpan a) = Int
 
 instance AtConst (USpan a) where
   (@) :: USpan a -> Int -> Maybe a
-  (USpan o l xs) @ (I# i) = if pos# i && isTrue# (i <# l)
+  (USpan o l xs) @ (I# i) = if i `geq#` 0# && i `lt#` l
         then Just (indexByteArray# xs (i +# o))
         else Nothing
 
@@ -254,7 +211,7 @@ instance Foldable USpan where
     foldl f b0 (USpan o l bs) = for f (indexByteArray# bs) o (o +# l) b0
     foldr :: (a -> b -> b) -> b -> USpan a -> b
     foldr f b0 (USpan o l bs) = forr f (indexByteArray# bs) o (o +# l) b0
-    null (USpan _ l _) = isTrue# (l <=# 0#)
+    null (USpan _ l _) = l `leq#` 0#
     length (USpan _ l _) = I# l
 
 instance Show a => Show (USpan a) where
@@ -299,7 +256,7 @@ instance ISpan Text where
     size = T.length
     overlap :: Text -> Text -> Maybe Text
     overlap (Text (ByteArray xs) o n) (Text (ByteArray ys) p m) = case unsafePtrEquality# xs ys of
-            1# -> 
+            1# ->
                 let oR = max o p in
                 let hR = min (o + n) (p + m) in
                 if oR <= hR
@@ -354,16 +311,16 @@ fromList = \xs -> runST (ST (f xs))
     --   Returns: ( state thread, finished array )
     copy :: State# s -> Int# -> SmallMutableArray# s a -> Int# -> [a] -> (# State# s, SmallArray# a #)
     copy s _ arr l    []  =
-            let !(# s1, arr1 #) = resizeSmallMutableArray# arr l undefined s in
-            let !(# s2, arr2 #) = unsafeFreezeSmallArray# arr1 s1 in
-            (# s2, arr2 #)
-    copy s c arr l    xs  | isTrue# (c ==# l) =
+            let s1 = shrinkSmallMutableArray# arr l s in
+            let !(# s2, arr' #) = unsafeFreezeSmallArray# arr s1 in
+            (# s2, arr' #)
+    copy s c arr l    xs  | c `eq#` l =
             let l' = 2# *# l in
             let !(# s', arr' #) = resizeSmallMutableArray# arr l' undefined s in
             copy s' l' arr' l xs
     copy s c arr l (x:xs) =
             let s' = writeSmallArray# arr l x s in
-            copy s' c arr (l +# 1#) xs
+            copy s' c arr (inc# l) xs
 
 -- | Allocates a list of primitives to a byte array, then creates an equivalent unboxed span
 fromListU :: forall a. Prim a => [a] -> USpan a
@@ -381,11 +338,10 @@ fromListU = \xs -> runST (ST (f xs))
             let !(# s1, arr1 #) = resizeMutableByteArray# arr (l *# siz) s in
             let !(# s2, arr2 #) = unsafeFreezeByteArray# arr1 s1 in
             (# s2, arr2, l #)
-    copy s c arr l    xs  | isTrue# (c ==# l) =
+    copy s c arr l    xs  | c `eq#` l =
             let l' = 2# *# l in
             let !(# s', arr' #) = resizeMutableByteArray# arr (l' *# siz) s in
             copy s' l' arr' l xs
     copy s c arr l (x:xs) =
             let s' = writeByteArray# arr l x s in
-            copy s' c arr (l +# 1#) xs
-
+            copy s' c arr (inc# l) xs
