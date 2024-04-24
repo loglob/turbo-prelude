@@ -1,4 +1,10 @@
-module Data.Internal.Span where
+module Data.Internal.Span (
+    Span (),
+    fromArray,
+    fromArray#,
+    fromSArray#,
+    fromList,
+) where
 
 import Data.Internal.ISpan
 import GHC.Arr (Array (..))

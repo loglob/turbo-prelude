@@ -1,4 +1,8 @@
-module Data.Internal.USpan where
+module Data.Internal.USpan (
+    USpan (),
+    fromBytes#,
+    fromListU,
+) where
 
 import Data.Internal.ISpan
 import Data.Primitive

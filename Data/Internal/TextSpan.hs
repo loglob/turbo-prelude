@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Data.Internal.TextSpan where
+module Data.Internal.TextSpan () where
 
 import Data.Array.Byte (ByteArray (..))
 import Data.Internal.ISpan
