@@ -12,6 +12,10 @@ class ISpan s where
     -- | A span of the entire array the input span slices
     baseSpan :: s -> s
 
+    -- | Computes the smallest span that contains both input spans
+    --   Returns `Nothing` if they are part of different base spans
+    bounds :: s -> s -> Maybe s
+
     -- | Extends a span to the left and right by the given number.
     --   Partial if indices are out-of-bounds.
     extends :: Int -> Int -> s -> s
@@ -19,22 +23,18 @@ class ISpan s where
     -- | Undoes `slice`, returning its first arguments
     isSliceOf :: s -> s -> Maybe Int
 
-    -- | The length of a span
-    size :: s -> Int
-
     -- | Computes the largest span that is a slice of both given spans.
     --   Returns `Nothing` when they don't overlap.
     --   Returns an empty span if the spans are exactly next to another.
     overlap :: s -> s -> Maybe s
 
-    -- | Computes the smallest span that contains both input spans
-    --   Returns `Nothing` if they are part of different base spans
-    bounds :: s -> s -> Maybe s
-
     -- | Compares the underlying pointers of two spans
     --   Returns `Nothing` if the spans point into different arrays,
     --   compares the starting address of the spans otherwise.
     ptrCmp :: s -> s -> Maybe Ordering
+
+    -- | The length of a span
+    size :: s -> Int
 
     -- | Creates a sub-span from an offset and a length
     --   Partial if indices are out of bounds
@@ -48,6 +48,10 @@ class ISpan s where
     sliceEnd :: Int -> Int -> s -> s
     sliceEnd n m s = slice (size s - n) m s
 
+    -- | Returns only the $1 leftmost elements of $2
+    takes :: Int -> s -> s
+    takes = slice 0
+
     -- | Trims the $1 leftmost and $2 rightmost elements of $3
     trims :: Int -> Int -> s -> s
     trims l r s =
@@ -55,10 +59,6 @@ class ISpan s where
          in if l < 0 || r < 0 || l + r > z
                 then error "trims indices out of range"
                 else slice l (size s - l - r) s
-
-    -- | Returns only the $1 leftmost elements of $2
-    takes :: Int -> s -> s
-    takes = slice 0
 
     {-# MINIMAL (baseSpan, extends, bounds, isSliceOf, size, overlap, ptrCmp, (slice | (trims, takes))) #-}
 

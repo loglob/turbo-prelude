@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.1.7.0
+version:            1.1.7.1
 
 synopsis: Alternate prelude and extra library
 
@@ -13,8 +13,8 @@ library
     exposed-modules:
         Control.Attempt
         Control.Extra
-        Data.Or
         Data.LargeText
+        Data.Or
         Data.SignedSet
         Data.Span
         Turbo.Cast

@@ -96,23 +96,19 @@ applicativeWrapper (n, ctx, a, b, c) = do
           FunD n' [Clause [] (NormalB v) []]
         ]
 
--- | makes the operator `<· :: Functor f => f a -> b -> f c` from `· :: a -> b -> c`
+-- | Makes the operator `<·` from `·`
 makeLeftWrapper :: Name -> Q [Dec]
 makeLeftWrapper n = opInfo n >>= leftWrapper
 
-{- | makes the operators `·>`, `·>>`, `·>>>` and `·>>>>` from ·
-  Introduces a `Functor` on the right argument
--}
+-- | Makes the operator `·>` from `·`
 makeRightWrapper :: Name -> Q [Dec]
 makeRightWrapper n = opInfo n >>= rightWrapper
 
-{- | makes operators like `<·>`, `<<·>` or `<·>>>` from ·
-  These wrap both sides in an `Applicative` type
--}
+-- | Makes the operator `<·>` from `·`
 makeApplicativeWrapper :: Name -> Q [Dec]
 makeApplicativeWrapper n = opInfo n >>= applicativeWrapper
 
--- | makes operators like `<·`, `<<·`, `·>` and `<·>` from ·
+-- | Makes the operators `<·`, `·>` and `<·>` from `·`
 makeOperators :: Name -> Q [Dec]
 makeOperators n = do
     o <- opInfo n
