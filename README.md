@@ -75,6 +75,7 @@ The defined operator families are:
 	- or `.&.. :: (a,b) -> (c,d,e) -> (a,b,c,d,e)`
 - `~ :: (a -> b) -> (b -> c) -> a -> c` as flipped `.`
 	- This has no duplicated forms
+- `@ :: Index a -> a -> Maybe (IxValue a)` as generic indexing like `!?`. Requires an `AtConst` instance which is a subclass of `At` from `Control.Lens`.
 - `°` function substitution that generalizes function composition
 	- Substitutes its right argument for the last argument of its left argument 
 	- Add `.` to the left or right to specify the arity of that function
