@@ -1,23 +1,23 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 
 -- | Non-standard but internally consistent operator syntax for functors/applicative/monads
-
 module Turbo.Operators where
-import qualified Control.Applicative as A
-import qualified Control.Monad as M
-import qualified Data.Functor as F
+
+import Control.Applicative qualified as A
+import Control.Monad qualified as M
+import Data.Functor qualified as F
 import GHC.Base (seq)
 import Turbo.OperatorsTH
 import Turbo.RootPrelude
 
--- * $-family
+-- * \$-family
 infixr 0 $$, $$$, $$$$
 {-# INLINE ($$) #-}
 {-# INLINE ($$$) #-}
 {-# INLINE ($$$$) #-}
-f $$ (a,b) = f a b
-f $$$ (a,b,c) = f a b c
-f $$$$ (a,b,c,d) = f a b c d
+f $$ (a, b) = f a b
+f $$$ (a, b, c) = f a b c
+f $$$$ (a, b, c, d) = f a b c d
 
 makeOperators '($)
 makeOperators '($$)
@@ -25,45 +25,53 @@ makeOperators '($$$)
 makeOperators '($$$$)
 
 -- ** Postponing variants
-makePostponed 1 [1..5]
-makePostponed 2 [1..5]
-makePostponed 3 [1..5]
-makePostponed 4 [1..5]
+makePostponed 1 [1 .. 5]
+makePostponed 2 [1 .. 5]
+makePostponed 3 [1 .. 5]
+makePostponed 4 [1 .. 5]
 
 -- ** strict variants
 infixr 0 $$!, $$$!, $$$$!
 {-# INLINE ($$!) #-}
 {-# INLINE ($$$!) #-}
 {-# INLINE ($$$$!) #-}
+
 -- | Strict variant of `$$` that ensures each argument is in WHNF before applying `f`
-f $$!   (a,b)     = let !a' = a in let !b' = b in f a' b'
+f $$! (a, b) = let !a' = a in let !b' = b in f a' b'
+
 -- | Strict variant of `$$$` that ensures each argument is in WHNF before applying `f`
-f $$$!  (a,b,c)   = let !a' = a in let !b' = b in let !c' = c in f a' b' c'
+f $$$! (a, b, c) = let !a' = a in let !b' = b in let !c' = c in f a' b' c'
+
 -- | Strict variant of `$$$$` that ensures each argument is in WHNF before applying `f`
-f $$$$! (a,b,c,d) = let !a' = a in let !b' = b in let !c' = c in let !d' = d in f a' b' c' d'
+f $$$$! (a, b, c, d) = let !a' = a in let !b' = b in let !c' = c in let !d' = d in f a' b' c' d'
 
 infixr 4 $!>, $$!>, $$$!>, $$$$!>
 {-# INLINE ($!>) #-}
 {-# INLINE ($$!>) #-}
 {-# INLINE ($$$!>) #-}
 {-# INLINE ($$$$!>) #-}
--- | Strict version of `$>`
---  Note that these are strict in their return, whereas $! is strict in its arguments
-($!>) :: Monad m => (a -> b) -> m a -> m b
+
+{- | Strict version of `$>`
+ Note that these are strict in their return, whereas $! is strict in its arguments
+-}
+($!>) :: (Monad m) => (a -> b) -> m a -> m b
 ($!>) = (M.<$!>)
+
 -- | Strict variant of `$$>`
 f $$!> m = do
-    (a,b) <- m
+    (a, b) <- m
     let x = f a b
     x `seq` return x
+
 -- | Strict variant of `$$$>`
 f $$$!> m = do
-    (a,b,c) <- m
+    (a, b, c) <- m
     let x = f a b c
     x `seq` return x
+
 -- | Strict variant of `$$$$>`
 f $$$$!> m = do
-    (a,b,c,d) <- m
+    (a, b, c, d) <- m
     let x = f a b c d
     x `seq` return x
 
@@ -71,7 +79,6 @@ makeLeftWrapper '($!)
 makeLeftWrapper '($$!)
 makeLeftWrapper '($$$!)
 makeLeftWrapper '($$$$!)
-
 
 -- * §-family
 infixl 1 §, §§, §§§, §§§§
@@ -83,9 +90,9 @@ infixl 1 §, §§, §§§, §§§§
 {-# INLINE (§§) #-}
 {-# INLINE (§§§) #-}
 {-# INLINE (§§§§) #-}
-(§)    = flip ($)
-(§§)   = flip ($$)
-(§§§)  = flip ($$$)
+(§) = flip ($)
+(§§) = flip ($$)
+(§§§) = flip ($$$)
 (§§§§) = flip ($$$$)
 
 makeOperators '(§)
@@ -103,19 +110,19 @@ infixl 1 §!, §§!, §§§!, §§§§!
 {-# INLINE (§§!) #-}
 {-# INLINE (§§§!) #-}
 {-# INLINE (§§§§!) #-}
-(§!)    = flip ($!)
-(§§!)   = flip ($$!)
-(§§§!)  = flip ($$$!)
+(§!) = flip ($!)
+(§§!) = flip ($$!)
+(§§§!) = flip ($$$!)
 (§§§§!) = flip ($$$$!)
 
 infixl 4 <§!, <§§!, <§§§!, <§§§§!
-(<§!)    :: Monad m => m a            -> (a -> b)                -> m b
-(<§§!)   :: Monad m => m (a, b)       -> (a -> b -> c)           -> m c
-(<§§§!)  :: Monad m => m (a, b, c)    -> (a -> b -> c -> d)      -> m d
-(<§§§§!) :: Monad m => m (a, b, c, d) -> (a -> b -> c -> d -> e) -> m e
-(<§!)    = flip ($!>)
-(<§§!)   = flip ($$!>)
-(<§§§!)  = flip ($$$!>)
+(<§!) :: (Monad m) => m a -> (a -> b) -> m b
+(<§§!) :: (Monad m) => m (a, b) -> (a -> b -> c) -> m c
+(<§§§!) :: (Monad m) => m (a, b, c) -> (a -> b -> c -> d) -> m d
+(<§§§§!) :: (Monad m) => m (a, b, c, d) -> (a -> b -> c -> d -> e) -> m e
+(<§!) = flip ($!>)
+(<§§!) = flip ($$!>)
+(<§§§!) = flip ($$$!>)
 (<§§§§!) = flip ($$$$!>)
 
 makeRightWrapper '(§!)
@@ -123,27 +130,30 @@ makeRightWrapper '(§§!)
 makeRightWrapper '(§§§!)
 makeRightWrapper '(§§§§!)
 
-
 -- *  Extended .-family
 infixr 9 .:
+
 -- | Higher-order function composition for arity 2
 (.:) :: (x -> y) -> (a -> b -> x) -> a -> b -> y
 {-# INLINE (.:) #-}
 (.:) f g a b = f (g a b)
 
 infixr 9 .:.
+
 -- | Higher-order function composition for arity 3
 (.:.) :: (x -> y) -> (a -> b -> c -> x) -> a -> b -> c -> y
 {-# INLINE (.:.) #-}
 (.:.) f g a b c = f (g a b c)
 
 infixr 9 .::
+
 -- | Higher-order function composition for arity 4
 (.::) :: (x -> y) -> (a -> b -> c -> d -> x) -> a -> b -> c -> d -> y
 {-# INLINE (.::) #-}
 (.::) f g a b c d = f (g a b c d)
 
 infixr 9 .::.
+
 -- | Higher-order function composition for arity 5
 (.::.) :: (x -> y) -> (a -> b -> c -> d -> e -> x) -> (a -> b -> c -> d -> e -> y)
 {-# INLINE (.::.) #-}
@@ -155,7 +165,6 @@ makeOperators '(.:.)
 makeOperators '(.::)
 makeOperators '(.::.)
 
-
 -- * °-family of function substitution
 makeFuncSubst 0
 makeFuncSubst 1
@@ -164,8 +173,8 @@ makeFuncSubst 3
 makeFuncSubst 4
 makeFuncSubst 5
 
-
 -- * &-family of tuple mergers
+
 -- ** pairs
 makeTuplePaste 0
 -- ** triples
@@ -177,23 +186,30 @@ makeTuplePaste 3
 -- ** 6-tuples
 makeTuplePaste 4
 
-
 -- * picking operators
 infixr 4 ^|, ^|>, <^|>
 infixl 4 |^, <|^, <|^>
+
 -- | Returns the first argument. Operator form of `const`
 (^|) :: a -> b -> a
+
 -- | Returns the second argument. Operator form of `flip const`
 (|^) :: a -> b -> b
+
+{- | Runs a computation only for its side effects, then replaces its return value.
+  Alias for hidden `Functor` member `<$`
+-}
+(^|>) :: (Functor f) => a -> f b -> f a
+
 -- | Runs a computation only for its side effects, then replaces its return value.
---   Alias for hidden `Functor` member `<$`
-(^|>) :: Functor f => a -> f b -> f a
--- | Runs a computation only for its side effects, then replaces its return value.
-(<|^) :: Functor f => f a -> b -> f b
+(<|^) :: (Functor f) => f a -> b -> f b
+
 -- | Runs two computations left-to-right, then picks only the left return value
-(<^|>) :: Applicative f => f a -> f b -> f a
+(<^|>) :: (Applicative f) => f a -> f b -> f a
+
 -- | Runs two computations left-to-right, then picks only the right return value
-(<|^>) :: Applicative f => f a -> f b -> f b
+(<|^>) :: (Applicative f) => f a -> f b -> f b
+
 {-# INLINE (^|) #-}
 {-# INLINE (|^) #-}
 {-# INLINE (^|>) #-}
@@ -202,15 +218,16 @@ infixl 4 |^, <|^, <|^>
 {-# INLINE (<|^>) #-}
 _ |^ b = b
 a ^| _ = a
+
 -- use builtin ops for performance
 (^|>) = (F.<$)
 (<|^) = (F.$>)
 (<|^>) = (A.*>)
 (<^|>) = (A.<*)
 
-
 -- * ~-family of reversed composition
 infixl 9 ~
+
 -- | Reversed function composition
 (~) :: (a -> b) -> (b -> c) -> a -> c
 {-# INLINE (~) #-}
@@ -218,29 +235,31 @@ g ~ f = f . g
 
 -- Can't use template due to "Illegal variable name: ‘~’"
 infixl 4 <~
-(<~) :: Functor f => f (a -> b) -> (b -> c) -> f (a -> c)
+(<~) :: (Functor f) => f (a -> b) -> (b -> c) -> f (a -> c)
 {-# INLINE (<~) #-}
 g <~ f = fmap (~ f) g
 
 infixl 4 ~>
-(~>) :: Functor f => (a -> b) -> f (b -> c) -> f (a -> c)
+(~>) :: (Functor f) => (a -> b) -> f (b -> c) -> f (a -> c)
 {-# INLINE (~>) #-}
 g ~> f = fmap (g ~) f
 
 infixl 4 <~>
-(<~>) :: Applicative f => f (a -> b) -> f (b -> c) -> f (a -> c)
+(<~>) :: (Applicative f) => f (a -> b) -> f (b -> c) -> f (a -> c)
 {-# INLINE (<~>) #-}
 (<~>) = liftA2 (~)
 
-
 -- * List operators
+
 -- ** :-family
 infixr 5 >:>
--- | Prepends values to boxed lists
---   `:` prefixes a constructor operator, so this breaks the convention
-(>:>) :: Functor f => a -> f [a] -> f [a]
+
+{- | Prepends values to boxed lists
+  `:` prefixes a constructor operator, so this breaks the convention
+-}
+(>:>) :: (Functor f) => a -> f [a] -> f [a]
 {-# INLINE (>:>) #-}
-a >:> x = fmap (a:) x
+a >:> x = fmap (a :) x
 
 makeLeftWrapper '(:)
 makeApplicativeWrapper '(:)
@@ -250,7 +269,7 @@ infixr 5 ?:
 (?:) :: Maybe a -> [a] -> [a]
 {-# INLINE (?:) #-}
 Nothing ?: xs = xs
-Just x  ?: xs = x : xs
+Just x ?: xs = x : xs
 
 makeOperators '(?:)
 
@@ -259,17 +278,19 @@ makeOperators '(++)
 
 -- ** :|-family
 infixr 5 >:|>
--- | Prepends values to boxed lists
---   `:` prefixes a constructor operator, so this breaks the convention
-(>:|>) :: Functor f => a -> f [a] -> f (NonEmpty a)
+
+{- | Prepends values to boxed lists
+  `:` prefixes a constructor operator, so this breaks the convention
+-}
+(>:|>) :: (Functor f) => a -> f [a] -> f (NonEmpty a)
 {-# INLINE (>:|>) #-}
 a >:|> x = (a :|) $> x
 
 makeLeftWrapper '(:|)
 makeApplicativeWrapper '(:|)
 
-
 -- * Maybe coalescence
+
 -- ** Maybe eliminating
 infixl 6 ?!, ?!>, <?!>
 
@@ -277,26 +298,28 @@ infixl 6 ?!, ?!>, <?!>
 orElse, (?!) :: Maybe a -> a -> a
 {-# INLINE orElse #-}
 {-# INLINE (?!) #-}
-orElse Nothing  a = a
+orElse Nothing a = a
 orElse (Just a) _ = a
 (?!) = orElse
 
 -- | Runs a computation only if no value is present already
-orElseM, (?!>) :: Applicative f => Maybe a -> f a -> f a
+orElseM, (?!>) :: (Applicative f) => Maybe a -> f a -> f a
 {-# INLINE orElseM #-}
 {-# INLINE (?!>) #-}
-orElseM Nothing  x  = x
+orElseM Nothing x = x
 orElseM (Just x) _ = pure x
 (?!>) = orElseM
 
--- | Runs a second computation only if the first produced no value
---
---  Note that it requires a Monad. For an Applicative version that is eager in its second computation, use `liftA2 (?!)`
-(<?!>) :: Monad m => m (Maybe a) -> m a -> m a
+{- | Runs a second computation only if the first produced no value
+
+ Note that it requires a Monad. For an Applicative version that is eager in its second computation, use `liftA2 (?!)`
+-}
+(<?!>) :: (Monad m) => m (Maybe a) -> m a -> m a
 {-# INLINE (<?!>) #-}
-l <?!> r = l >>= \case
-    Just x  -> return x
-    Nothing -> r
+l <?!> r =
+    l >>= \case
+        Just x -> return x
+        Nothing -> r
 
 -- | Replaces a computation's result if it's `Nothing`
 makeLeftWrapper '(?!)
@@ -307,31 +330,33 @@ infixl 6 ??, ??>, <??>
 -- | Returns the leftmost `Just`
 (??) :: Maybe a -> Maybe a -> Maybe a
 {-# INLINE (??) #-}
-Just x  ?? _ = Just x
+Just x ?? _ = Just x
 Nothing ?? y = y
 
 -- | Runs a maybe-computation only if no value is present already
-(??>) :: Applicative f => Maybe a -> f (Maybe a) -> f (Maybe a)
+(??>) :: (Applicative f) => Maybe a -> f (Maybe a) -> f (Maybe a)
 {-# INLINE (??>) #-}
-Just x  ??> _ = pure (Just x)
+Just x ??> _ = pure (Just x)
 Nothing ??> x = x
 
--- | Runs a second computation only if the first produced no value
---
---  Note that it requires a Monad for short-cutting.
---  For an Applicative version that is eager in its second computation, use `liftA2 (??)`
-(<??>) :: Monad f => f (Maybe a) -> f (Maybe a) -> f (Maybe a)
+{- | Runs a second computation only if the first produced no value
+
+ Note that it requires a Monad for short-cutting.
+ For an Applicative version that is eager in its second computation, use `liftA2 (??)`
+-}
+(<??>) :: (Monad f) => f (Maybe a) -> f (Maybe a) -> f (Maybe a)
 {-# INLINE (<??>) #-}
-x <??> y = x >>= \case
-    Just a  -> return (Just a)
-    Nothing -> y
+x <??> y =
+    x >>= \case
+        Just a -> return (Just a)
+        Nothing -> y
 
 -- | Replaces a computation's result if it's `Nothing`
 makeLeftWrapper '(??)
 
-
 -- * Misc
-infixr 3 &&& , |||
+infixr 3 &&&, |||
+
 -- | Joins two predicate functions
 (&&&) :: (t -> Bool) -> (t -> Bool) -> t -> Bool
 {-# INLINE (&&&) #-}
@@ -343,23 +368,27 @@ a &&& b = \x -> a x && b x
 a ||| b = \x -> a x || b x
 
 infixl 7 /^
+
 -- | Integer division rounding up
-(/^) :: Integral a => a -> a -> a
+(/^) :: (Integral a) => a -> a -> a
 a /^ b = signum (a `mod` b) + a `div` b
 
 infixr 6 <>?
+
 -- | Semigroup operation with one-sided maybe
-(<>?) :: Semigroup a => a -> Maybe a -> a
+(<>?) :: (Semigroup a) => a -> Maybe a -> a
 x <>? Nothing = x
 x <>? Just y = x <> y
 
 infixl 6 ?<>
+
 -- | Semigroup operation with one-sided maybe
-(?<>) :: Semigroup a => Maybe a -> a -> a
+(?<>) :: (Semigroup a) => Maybe a -> a -> a
 Nothing ?<> y = y
-Just x  ?<> y = x <> y
+Just x ?<> y = x <> y
 
 infixl 1 >>~
+
 -- | Result-ignoring variant of `>>=` (has nothing to do with the `~`-family)
-(>>~) :: Monad m => m a -> (a -> m ()) -> m a
+(>>~) :: (Monad m) => m a -> (a -> m ()) -> m a
 x >>~ f = x >>= \y -> f y <|^ y

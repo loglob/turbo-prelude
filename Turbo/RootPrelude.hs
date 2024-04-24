@@ -4,8 +4,8 @@
 module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take, maximum1, minimum1, maximumBy1, minimumBy1) where
 
 import Control.Applicative as Exp (Alternative (..), Applicative (..), liftA, liftA3)
-import Control.Lens as Exp
-  ( Cons (..),
+import Control.Lens as Exp (
+    Cons (..),
     Field1 (..),
     Field10 (..),
     Field11 (..),
@@ -38,9 +38,9 @@ import Control.Lens as Exp
     view,
     _head,
     _tail,
-  )
-import Control.Monad as Exp
-  ( Monad (..),
+ )
+import Control.Monad as Exp (
+    Monad (..),
     MonadFail (..),
     MonadPlus (..),
     ap,
@@ -69,7 +69,7 @@ import Control.Monad as Exp
     (<=<),
     (=<<),
     (>=>),
-  )
+ )
 import Data.Bifoldable as Exp (Bifoldable (..))
 import Data.Bifunctor as Exp (Bifunctor (..))
 import Data.Bitraversable as Exp (Bitraversable (..), bimapM)
@@ -77,9 +77,9 @@ import Data.Bool as Exp (Bool (..), bool, not, otherwise, (&&), (||))
 import Data.Char as Exp (Char, chr, ord)
 import Data.Either as Exp (Either (..), either, lefts, partitionEithers, rights)
 import Data.Eq as Exp (Eq (..))
-import Data.Foldable as Exp
-  ( Foldable
-      ( elem,
+import Data.Foldable as Exp (
+    Foldable (
+        elem,
         fold,
         foldMap,
         foldMap',
@@ -92,7 +92,7 @@ import Data.Foldable as Exp
         product,
         sum,
         toList
-      ),
+    ),
     all,
     any,
     asum,
@@ -108,10 +108,10 @@ import Data.Foldable as Exp
     notElem,
     sequenceA_,
     traverse_,
-  )
-import Data.Foldable1 as Exp
-  ( Foldable1
-      ( fold1,
+ )
+import Data.Foldable1 as Exp (
+    Foldable1 (
+        fold1,
         foldMap1,
         foldMap1',
         foldlMap1,
@@ -119,7 +119,7 @@ import Data.Foldable1 as Exp
         foldrMap1,
         foldrMap1',
         toNonEmpty
-      ),
+    ),
     foldl1,
     foldl1',
     foldlM1,
@@ -128,14 +128,14 @@ import Data.Foldable1 as Exp
     foldr1',
     foldrM1,
     foldrMapM1,
-  )
-import qualified Data.Foldable1 as F1
+ )
+import Data.Foldable1 qualified as F1
 import Data.Function as Exp (const, flip, id, ($), (.))
 import Data.Functor as Exp (Functor (fmap), unzip)
 import Data.Functor.Const as Exp (Const (..))
 import Data.Functor.Identity as Exp (Identity (..))
-import Data.List as Exp
-  ( break,
+import Data.List as Exp (
+    break,
     cycle,
     delete,
     deleteBy,
@@ -192,10 +192,10 @@ import Data.List as Exp
     zipWith7,
     (!?),
     (++),
-  )
-import qualified Data.List as L
-import Data.List.NonEmpty as Exp
-  ( NonEmpty (..),
+ )
+import Data.List qualified as L
+import Data.List.NonEmpty as Exp (
+    NonEmpty (..),
     head,
     init,
     inits1,
@@ -208,10 +208,10 @@ import Data.List.NonEmpty as Exp
     tail,
     tails1,
     (<|),
-  )
+ )
 import Data.Map as Exp (Map)
-import Data.Maybe as Exp
-  ( Maybe (..),
+import Data.Maybe as Exp (
+    Maybe (..),
     catMaybes,
     fromJust,
     fromMaybe,
@@ -221,15 +221,15 @@ import Data.Maybe as Exp
     mapMaybe,
     maybe,
     maybeToList,
-  )
+ )
 import Data.Monoid as Exp (Monoid (..))
 import Data.Ord as Exp (Ord (..), Ordering (..), clamp, comparing)
 import Data.Semigroup as Exp (Semigroup (..))
 import Data.Set as Exp (Set)
 import Data.String as Exp (IsString (..), String, lines, unlines, unwords, words)
 import Data.Text as Exp (Text, pack, unpack)
-import Data.Traversable as Exp
-  ( Traversable (..),
+import Data.Traversable as Exp (
+    Traversable (..),
     fmapDefault,
     foldMapDefault,
     for,
@@ -237,12 +237,12 @@ import Data.Traversable as Exp
     mapAccumL,
     mapAccumM,
     mapAccumR,
-  )
+ )
 import Data.Tuple as Exp (Solo (Solo), curry, fst, getSolo, snd, swap, uncurry)
 import GHC.Base as Exp (($!))
 import GHC.Enum as Exp (Bounded (..), Enum (..))
-import GHC.Float as Exp
-  ( Double,
+import GHC.Float as Exp (
+    Double,
     Float,
     Floating (..),
     RealFloat (..),
@@ -258,11 +258,11 @@ import GHC.Float as Exp
     isFloatInfinite,
     isFloatNaN,
     isFloatNegativeZero,
-  )
+ )
 import GHC.Int as Exp (Int (..), Int16 (..), Int32 (..), Int64 (..), Int8 (..))
 import GHC.Num as Exp (Integer, Natural (..), Num (..))
-import GHC.Real as Exp
-  ( Fractional (..),
+import GHC.Real as Exp (
+    Fractional (..),
     Integral (..),
     Ratio (..),
     Rational,
@@ -281,19 +281,19 @@ import GHC.Real as Exp
     (%),
     (^),
     (^^),
-  )
-import GHC.Show as Exp
-  ( Show (..),
+ )
+import GHC.Show as Exp (
+    Show (..),
     ShowS,
     showList__,
     showLitChar,
     showLitString,
     showParen,
     shows,
-  )
+ )
 import GHC.Word as Exp (Word (..), Word16 (..), Word32 (..), Word64 (..), Word8 (..))
-import System.IO as Exp
-  ( BufferMode (..),
+import System.IO as Exp (
+    BufferMode (..),
     FilePath,
     Handle,
     HandlePosn,
@@ -371,7 +371,7 @@ import System.IO as Exp
     withBinaryFile,
     withFile,
     writeFile,
-  )
+ )
 import Text.Printf as Exp (hPrintf, printf)
 
 drop :: (Integral i) => i -> [a] -> [a]

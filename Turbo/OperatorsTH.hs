@@ -1,5 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
+
 module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst, makeTuplePaste) where
+
 import Data.Char (isUpper)
 import GHC.Err (error)
 import Language.Haskell.TH
@@ -27,84 +29,86 @@ opInfo x = do
             VarI _ t _ -> t
             DataConI _ t _ -> t
             _ -> error "Expected a regular function"
-    let (ctx,t) = case ft of
-           ForallT  _ c t -> (c, t)
-           t              -> ([], t)
+    let (ctx, t) = case ft of
+            ForallT _ c t -> (c, t)
+            t -> ([], t)
     case t of
         -- (->) a ((->) b c)   === a -> (b -> c)
         AppT (AppT p a) (AppT (AppT q b) c) | isArrow q, isArrow p -> return (x, ctx, a, b, c)
-        _ -> error$ "Expected a binary function, got: " ++ show t
+        _ -> error $ "Expected a binary function, got: " ++ show t
 
--- | Gets an expression for a constructor or normal function by its name 
+-- | Gets an expression for a constructor or normal function by its name
 conOrVarE :: Name -> Q Exp
 conOrVarE n = case nameBase n of
-    ':':_ -> conE n
-    c:_   | isUpper c -> conE n
-    _     -> varE n
+    ':' : _ -> conE n
+    c : _ | isUpper c -> conE n
+    _ -> varE n
 
 -- | creates a left-sided functor wrapper for an existing operator
 leftWrapper :: OpInfo -> Q [Dec]
-leftWrapper (n,ctx,a,b,c) = do
-    let n' = mkName$ '<' : nameBase n
+leftWrapper (n, ctx, a, b, c) = do
+    let n' = mkName $ '<' : nameBase n
     f <- newName "f"
     let fx = Fixity 4 InfixL
     let a' = AppT (VarT f) a
     let c' = AppT (VarT f) c
     let ctx' = (ConT ''Functor) `AppT` (VarT f) : ctx
-    v <- [e| \a b -> fmap (\x -> $(conOrVarE n) x b) a |]
-    return [
-        InfixD fx n' ,
-        SigD n' (ForallT [] ctx' (a' → b → c')) ,
-        mkInline n' ,
-        FunD n' [ Clause [] (NormalB v) [] ]
-     ]
+    v <- [e|\a b -> fmap (\x -> $(conOrVarE n) x b) a|]
+    return
+        [ InfixD fx n',
+          SigD n' (ForallT [] ctx' (a' → b → c')),
+          mkInline n',
+          FunD n' [Clause [] (NormalB v) []]
+        ]
 
 -- | creates a right-sided functor wrapper for an existing operator
 rightWrapper :: OpInfo -> Q [Dec]
-rightWrapper (n,ctx,a,b,c) = do
-    let n' = mkName$ nameBase n ++ ">"
+rightWrapper (n, ctx, a, b, c) = do
+    let n' = mkName $ nameBase n ++ ">"
     f <- newName "f"
     let fx = Fixity 4 InfixL
     let b' = AppT (VarT f) b
     let c' = AppT (VarT f) c
     let ctx' = (ConT ''Functor) `AppT` (VarT f) : ctx
-    v <- [e| fmap . $(conOrVarE n) |]
-    return [
-        InfixD fx n' ,
-        SigD n' (ForallT [] ctx' (a → b' → c')) ,
-        mkInline n' ,
-        FunD n' [ Clause [] (NormalB v) [] ]
-     ]
+    v <- [e|fmap . $(conOrVarE n)|]
+    return
+        [ InfixD fx n',
+          SigD n' (ForallT [] ctx' (a → b' → c')),
+          mkInline n',
+          FunD n' [Clause [] (NormalB v) []]
+        ]
 
 -- | creates a two-sided applicative wrapper for an existing operator
 applicativeWrapper :: OpInfo -> Q [Dec]
-applicativeWrapper (n,ctx,a,b,c) = do
-    let n' = mkName$ '<' : nameBase n ++ ">"
+applicativeWrapper (n, ctx, a, b, c) = do
+    let n' = mkName $ '<' : nameBase n ++ ">"
     f <- newName "f"
     let fx = Fixity 4 InfixL
     let a' = AppT (VarT f) a
     let b' = AppT (VarT f) b
     let c' = AppT (VarT f) c
     let ctx' = (ConT ''Applicative) `AppT` (VarT f) : ctx
-    v <- [e| liftA2 $(conOrVarE n) |]
-    return [
-        InfixD fx n' ,
-        SigD n' (ForallT [] ctx' (a' → b' → c')) ,
-        mkInline n' ,
-        FunD n' [ Clause [] (NormalB v) [] ]
-     ]
+    v <- [e|liftA2 $(conOrVarE n)|]
+    return
+        [ InfixD fx n',
+          SigD n' (ForallT [] ctx' (a' → b' → c')),
+          mkInline n',
+          FunD n' [Clause [] (NormalB v) []]
+        ]
 
 -- | makes the operator `<· :: Functor f => f a -> b -> f c` from `· :: a -> b -> c`
 makeLeftWrapper :: Name -> Q [Dec]
 makeLeftWrapper n = opInfo n >>= leftWrapper
 
--- | makes the operators `·>`, `·>>`, `·>>>` and `·>>>>` from ·
---   Introduces a `Functor` on the right argument
+{- | makes the operators `·>`, `·>>`, `·>>>` and `·>>>>` from ·
+  Introduces a `Functor` on the right argument
+-}
 makeRightWrapper :: Name -> Q [Dec]
 makeRightWrapper n = opInfo n >>= rightWrapper
 
--- | makes operators like `<·>`, `<<·>` or `<·>>>` from ·
---   These wrap both sides in an `Applicative` type
+{- | makes operators like `<·>`, `<<·>` or `<·>>>` from ·
+  These wrap both sides in an `Applicative` type
+-}
 makeApplicativeWrapper :: Name -> Q [Dec]
 makeApplicativeWrapper n = opInfo n >>= applicativeWrapper
 
@@ -115,12 +119,12 @@ makeOperators n = do
     as <- leftWrapper o
     bs <- rightWrapper o
     cs <- applicativeWrapper o
-    return$ as ++ bs ++ cs
+    return $ as ++ bs ++ cs
 
 -- | Generates a dot decoration for the left side of an operator
 dotPrefix :: Word -> String
 dotPrefix 0 = ""
-dotPrefix n = let m = n `div` 2 in if even n then ".." ++ (replicate (m-1) ':') else '.' : replicate m ':'
+dotPrefix n = let m = n `div` 2 in if even n then ".." ++ (replicate (m - 1) ':') else '.' : replicate m ':'
 
 -- | Generates a dot decoration for the right side of an operator
 dotSuffix :: Word -> String
@@ -138,11 +142,11 @@ funT' as r = funT (fmap VarT as) (VarT r)
 -- | shorthand for generating tuple types that avoids introducing `Solo`s
 tupT :: [Type] -> Type
 tupT [x] = x
-tupT fs  = foldl AppT (TupleT (length fs)) fs
+tupT fs = foldl AppT (TupleT (length fs)) fs
 
 -- | shorthand for generating tuple types from names that avoids introducing `Solo`s
 tupT' :: [Name] -> Type
-tupT' = tupT .fmap VarT
+tupT' = tupT . fmap VarT
 
 -- | Shorthand for generating multiple new variables
 newNames :: Word -> String -> Q [Name]
@@ -153,21 +157,22 @@ app' :: Name -> [Name] -> Exp
 app' f xs = foldl AppE (VarE f) (fmap VarE xs)
 
 -- | Generates every whole-valued pair so that `n+m  =  $1`
-unSum :: (Ord n, Num n) => n -> [(n,n)]
-unSum n = ns 0 where
+unSum :: (Ord n, Num n) => n -> [(n, n)]
+unSum n = ns 0
+  where
     ns m | m > n = []
-    ns m = (m, n - m) : ns (m+1)
+    ns m = (m, n - m) : ns (m + 1)
 
 -- | Generates a tuple pattern and avoids introducing `Solo`
 tupP' :: [Name] -> Pat
 tupP' [n] = VarP n
-tupP' ns  = TupP (fmap VarP ns)
+tupP' ns = TupP (fmap VarP ns)
 
 -- | Generates an operator for postponed `$` with $1 dollars and $2 dots
-postponedDollar :: Word -> Word -> Q [Dec] 
+postponedDollar :: Word -> Word -> Q [Dec]
 postponedDollar m n = do
     args <- mapM newName (replicate n "a")
-    tuple@(x0:_) <- mapM newName (replicate m "x")
+    tuple@(x0 : _) <- mapM newName (replicate m "x")
     fn <- newName "f"
     ret <- newName "y"
     let nm = mkName (dotPrefix n ++ replicate m '$')
@@ -178,53 +183,71 @@ postponedDollar m n = do
     as <- leftWrapper o
     bs <- rightWrapper o
     cs <- applicativeWrapper o
-    return$ [
-        InfixD (Fixity 0 InfixR) nm ,
-        SigD nm (t1 → t2 → t3) ,
-        mkInline nm ,
-        FunD nm [Clause (VarP fn : (if m == 1 then VarP x0 else TupP (fmap VarP tuple)) : fmap VarP args) (NormalB$
-            foldl AppE (VarE fn) (fmap VarE (args ++ tuple))
-         ) []] 
-     ] ++ as ++ bs ++ cs
+    return $
+        [ InfixD (Fixity 0 InfixR) nm,
+          SigD nm (t1 → t2 → t3),
+          mkInline nm,
+          FunD
+            nm
+            [ Clause
+                (VarP fn : (if m == 1 then VarP x0 else TupP (fmap VarP tuple)) : fmap VarP args)
+                ( NormalB $
+                    foldl AppE (VarE fn) (fmap VarE (args ++ tuple))
+                )
+                []
+            ]
+        ]
+            ++ as
+            ++ bs
+            ++ cs
 
 makePostponed :: Word -> [Word] -> Q [Dec]
-makePostponed n ms = fmap concat$ mapM (postponedDollar n) ms
+makePostponed n ms = fmap concat $ mapM (postponedDollar n) ms
 
 -- | Generates a °-operator for substituting the $1'th argument to the left function with the arity $2 right function
 funcSubst :: Word -> Word -> Q [Dec]
 funcSubst n m = do
-    let nm = mkName$ dotPrefix n ++ "°" ++ dotSuffix m
+    let nm = mkName $ dotPrefix n ++ "°" ++ dotSuffix m
     xs <- newNames n "x"
-    ys <- newNames (m+1) "y"
+    ys <- newNames (m + 1) "y"
     sub <- newName "a"
     res <- newName "b"
     let f1 = funT' (xs ++ [sub]) res
     let f2 = funT' ys sub
-    let fo = funT' (xs ++ ys) res 
+    let fo = funT' (xs ++ ys) res
     let o = (nm, [], f1, f2, fo) :: OpInfo
     l <- leftWrapper o
     r <- rightWrapper o
     a <- applicativeWrapper o
     let f = mkName "f"
     let g = mkName "g"
-    return$ [
-        InfixD (Fixity 9 InfixR) nm ,
-        SigD nm (f1 → f2 → fo) ,
-        mkInline nm ,
-        FunD nm [Clause (VarP f : VarP g : fmap VarP (xs ++ ys)) (NormalB$
-            app' f xs `AppE` app' g ys
-         ) []]
-     ] ++ l ++ r ++ a
+    return $
+        [ InfixD (Fixity 9 InfixR) nm,
+          SigD nm (f1 → f2 → fo),
+          mkInline nm,
+          FunD
+            nm
+            [ Clause
+                (VarP f : VarP g : fmap VarP (xs ++ ys))
+                ( NormalB $
+                    app' f xs `AppE` app' g ys
+                )
+                []
+            ]
+        ]
+            ++ l
+            ++ r
+            ++ a
 
 makeFuncSubst :: Word -> Q [Dec]
-makeFuncSubst n = fmap concat$ forM (unSum n) (uncurry funcSubst)
+makeFuncSubst n = fmap concat $ forM (unSum n) (uncurry funcSubst)
 
 -- | Generates an &-operator for combining a ($1+1) tuple and an ($2+1) tuple together
 tuplePaste :: Word -> Word -> Q [Dec]
 tuplePaste n m = do
-    let nm = mkName$ dotPrefix n ++ "&" ++ dotSuffix m
-    ls <- newNames (1+n) "x"
-    rs <- newNames (1+m) "y"
+    let nm = mkName $ dotPrefix n ++ "&" ++ dotSuffix m
+    ls <- newNames (1 + n) "x"
+    rs <- newNames (1 + m) "y"
     let t1 = tupT' ls
     let t2 = tupT' rs
     let to = tupT' (ls ++ rs)
@@ -232,14 +255,18 @@ tuplePaste n m = do
     l <- leftWrapper o
     r <- rightWrapper o
     a <- applicativeWrapper o
-    return$ [
-        InfixD (Fixity 1 InfixL) nm ,
-        SigD nm (t1 → t2 → to) ,
-        mkInline nm ,
-        FunD nm [
-            Clause [tupP' ls, tupP' rs] (NormalB$ TupE$ fmap (Just .VarE) (ls++rs)) []
+    return $
+        [ InfixD (Fixity 1 InfixL) nm,
+          SigD nm (t1 → t2 → to),
+          mkInline nm,
+          FunD
+            nm
+            [ Clause [tupP' ls, tupP' rs] (NormalB $ TupE $ fmap (Just . VarE) (ls ++ rs)) []
+            ]
         ]
-     ] ++ l ++ r ++ a
+            ++ l
+            ++ r
+            ++ a
 
 makeTuplePaste :: Word -> Q [Dec]
-makeTuplePaste n = fmap concat$ forM (unSum n) (uncurry tuplePaste)
+makeTuplePaste n = fmap concat $ forM (unSum n) (uncurry tuplePaste)
