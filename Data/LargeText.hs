@@ -1,8 +1,6 @@
 -- | Implements large (eager) Text with efficient indexing
 module Data.LargeText (LargeText (), Position (..), charAtPos, fromText, getLine, indexPos, posOfChar, toText, uncons, unconsPos) where
 
-import Control.Extra
-import Control.Lens (Index, IxValue)
 import Data.Internal.ISpan
 import Data.Primitive (ByteArray (..))
 import Data.Text qualified as T
@@ -10,7 +8,7 @@ import Data.Text.Internal (Text (..))
 import GHC.Base
 import GHC.Exts
 import GHC.ST
-import Turbo.Prelude hiding (getLine, uncons)
+import Turbo.Prelude hiding (uncons)
 
 -- * Type definitions
 

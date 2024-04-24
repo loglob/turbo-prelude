@@ -5,6 +5,7 @@ module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take, maximum1, 
 
 import Control.Applicative as Exp (Alternative (..), Applicative (..), liftA, liftA3)
 import Control.Lens as Exp (
+    At (..),
     Cons (..),
     Field1 (..),
     Field10 (..),
@@ -27,6 +28,9 @@ import Control.Lens as Exp (
     Field9 (..),
     Getter,
     Getting,
+    Index,
+    IxValue,
+    Ixed (..),
     Lens,
     Lens',
     Setter,

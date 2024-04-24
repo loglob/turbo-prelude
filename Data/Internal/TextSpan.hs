@@ -8,7 +8,7 @@ import Data.Text qualified as T
 import Data.Text.Internal (Text (..))
 import GHC.Err (error)
 import GHC.Exts
-import Turbo.RootPrelude
+import Turbo.Prelude
 
 -- | Variant of `measureOff` that checks the text is long enough
 measureOff' :: Int -> Text -> Maybe Int

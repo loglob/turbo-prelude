@@ -1,13 +1,11 @@
 module Data.Internal.Span where
 
-import Control.Extra
-import Control.Lens (Index, IxValue)
 import Data.Internal.ISpan
 import GHC.Arr (Array (..))
 import GHC.Base
 import GHC.Exts (resizeSmallMutableArray#)
 import GHC.ST
-import Turbo.RootPrelude hiding (for)
+import Turbo.Prelude hiding (for)
 
 {- | Permit either small or regular arrays
 Differences should be negligible because they are immutable

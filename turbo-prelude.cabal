@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.1.7.1
+version:            1.2.0.0
 
 synopsis: Alternate prelude and extra library
 
@@ -12,7 +12,6 @@ maintainer:   loglob
 library
     exposed-modules:
         Control.Attempt
-        Control.Extra
         Data.LargeText
         Data.Or
         Data.SignedSet

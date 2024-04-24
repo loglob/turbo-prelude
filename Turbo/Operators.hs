@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 
 -- | Non-standard but internally consistent operator syntax for functors/applicative/monads
@@ -5,6 +6,7 @@ module Turbo.Operators where
 
 import Control.Applicative qualified as A
 import Control.Monad qualified as M
+import Control.Monad.State
 import Data.Functor qualified as F
 import GHC.Base (seq)
 import Turbo.OperatorsTH
@@ -234,20 +236,49 @@ infixl 9 ~
 g ~ f = f . g
 
 -- Can't use template due to "Illegal variable name: ‘~’"
-infixl 4 <~
+infixl 4 <~, ~>, <~>
+
 (<~) :: (Functor f) => f (a -> b) -> (b -> c) -> f (a -> c)
 {-# INLINE (<~) #-}
 g <~ f = fmap (~ f) g
 
-infixl 4 ~>
 (~>) :: (Functor f) => (a -> b) -> f (b -> c) -> f (a -> c)
 {-# INLINE (~>) #-}
 g ~> f = fmap (g ~) f
 
-infixl 4 <~>
 (<~>) :: (Applicative f) => f (a -> b) -> f (b -> c) -> f (a -> c)
 {-# INLINE (<~>) #-}
 (<~>) = liftA2 (~)
+
+-- * General indexing function
+
+-- | A weaker variant of `At` that cannot be written to
+class AtConst m where
+    infixl 9 @
+
+    -- | Resolves a possibly absent index
+    (@) :: m -> Index m -> Maybe (IxValue m)
+
+instance {-# OVERLAPPABLE #-} (Ixed m) => AtConst m where
+    x @ i = execState ((ix i) (\y -> put (Just y) >> return y) x) Nothing
+
+-- Can't use template due to "Illegal variable name: ‘~’"
+infixl 4 <@, @>, <@>
+
+-- | Left functor wrapper of `@`
+(<@) :: (AtConst m, Functor f) => f m -> Index m -> f (Maybe (IxValue m))
+{-# INLINE (<@) #-}
+(<@) x i = fmap (@ i) x
+
+-- | Right functor wrapper of `@`
+(@>) :: (AtConst m, Functor f) => m -> f (Index m) -> f (Maybe (IxValue m))
+{-# INLINE (@>) #-}
+(@>) x i = fmap (x @) i
+
+-- | Applicative wrapper of `@`
+(<@>) :: (AtConst m, Applicative f) => f m -> f (Index m) -> f (Maybe (IxValue m))
+{-# INLINE (<@>) #-}
+(<@>) = liftA2 (@)
 
 -- * List operators
 

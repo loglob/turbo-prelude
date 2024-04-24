@@ -1,13 +1,11 @@
 module Data.Internal.USpan where
 
-import Control.Extra
-import Control.Lens (Index, IxValue)
 import Data.Internal.ISpan
 import Data.Primitive
 import Data.Proxy
 import GHC.Base
 import GHC.ST
-import Turbo.RootPrelude hiding (for)
+import Turbo.Prelude hiding (for)
 
 {- | Segment of a byte array.
  Offers more compact and efficient representation, but doesn't support laziness.
