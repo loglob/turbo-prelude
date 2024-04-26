@@ -1,7 +1,6 @@
 -- | Monad for left-to-right (de-)construction
-module Control.Mapper (Builder, BuilderT, Mapper, MapperT (), Reducer, ReducerT, peek, pop, runMapper, runMapperT, trace, yield) where
+module Control.Mapper (Builder, BuilderT, Mapper, MapperT (), Reducer, ReducerT, peek, pop, runMapper, runMapperT, trace, trace', yield) where
 
-import Control.Lens (Snoc, snoc)
 import Control.Lens.Empty
 import Control.Monad.State
 import Data.Span
@@ -59,6 +58,10 @@ trace (SM f) = SM do
     return case post `isSliceOf` prev of
         Nothing -> error "trace: ISpan instance violates uncons law"
         Just o -> (takes o prev, x)
+
+-- | Variant of `trace` that completes a function instead of building a tuple
+trace' :: (Monad m, ISpan r) => MapperT b r m (r -> x) -> MapperT b r m x
+trace' x = uncurry (flip ($)) $> trace x
 
 -- | Consumes a single input token
 pop :: (Monad m, Uncons r a) => MapperT b r m (Maybe a)
