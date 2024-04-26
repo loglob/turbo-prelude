@@ -96,6 +96,11 @@ instance Foldable Span where
 instance (Show a) => Show (Span a) where
     showsPrec p xs = showsPrec p (toList xs)
 
+instance Uncons (Span a) a where
+    uncons :: Span a -> Maybe (a, Span a)
+    uncons (Span _ 0# _) = Nothing
+    uncons (Span o n xs) = Just (xs `at#` o, Span (o +# 1#) (n -# 1#) xs)
+
 {- | Aliases an array as a span.
  Discards index types completely, rebasing the array to 0.
 -}

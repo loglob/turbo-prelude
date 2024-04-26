@@ -184,7 +184,6 @@ import Data.List as Exp (
     subsequences,
     tails,
     takeWhile,
-    uncons,
     unfoldr,
     unsnoc,
     zip,

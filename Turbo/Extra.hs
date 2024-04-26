@@ -1,5 +1,8 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Turbo.Extra where
 
+import Control.Lens qualified as L
 import Data.Foldable qualified as F
 import Data.Functor qualified as Fu
 import Data.Text qualified as T
@@ -323,3 +326,12 @@ sumBy f = foldl' (\x y -> x + f y) 0
 viaNE :: (NonEmpty a -> b) -> [a] -> Maybe b
 viaNE _ [] = Nothing
 viaNE f (x : xs) = Just $ f (x :| xs)
+
+-- | A read-only variant of `Cons`
+class Uncons t a where
+    uncons :: t -> Maybe (a, t)
+
+-- | `Uncons` is a subclass of `Simple Cons`
+instance {-# OVERLAPPABLE #-} (Cons t t a a) => Uncons t a where
+    uncons :: t -> Maybe (a, t)
+    uncons = L.uncons
