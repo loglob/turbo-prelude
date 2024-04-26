@@ -183,7 +183,6 @@ import Data.List as Exp (
     stripPrefix,
     subsequences,
     tails,
-    takeWhile,
     unfoldr,
     zip,
     zipWith,
@@ -250,16 +249,6 @@ import GHC.Float as Exp (
     RealFloat (..),
     floatToDigits,
     fromRat,
-    isDoubleDenormalized,
-    isDoubleFinite,
-    isDoubleInfinite,
-    isDoubleNaN,
-    isDoubleNegativeZero,
-    isFloatDenormalized,
-    isFloatFinite,
-    isFloatInfinite,
-    isFloatNaN,
-    isFloatNegativeZero,
  )
 import GHC.Int as Exp (Int (..), Int16 (..), Int32 (..), Int64 (..), Int8 (..))
 import GHC.Num as Exp (Integer, Natural (..), Num (..))
