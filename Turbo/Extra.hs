@@ -354,15 +354,33 @@ instance {-# OVERLAPPABLE #-} (Snoc t t a a) => Unsnoc t a where
 
 -- * Generic lens-based collection manipulation
 
+-- `mapMaybeL` with an index parameter
+mapMaybeIxL :: (Enum i, Uncons xs x, AsEmpty ys, Cons ys ys y y) => (i -> x -> Maybe y) -> xs -> ys
+mapMaybeIxL f = m (toEnum 0)
+  where
+    m i xs = case uncons xs of
+        Nothing -> Empty
+        Just (x, rs) -> let ys = m (succ i) rs in maybe ys (`cons` ys) (f i x)
+
 {- | Generalized `mapMaybe` using left-reduction and -construction via `Cons`.
     Use `mapMaybeR` if `Snoc` is more efficient on the collections.
 -}
 mapMaybeL :: (Uncons xs x, AsEmpty ys, Cons ys ys y y) => (x -> Maybe y) -> xs -> ys
-mapMaybeL f xs = case uncons xs of
-    Nothing -> Empty
-    Just (x, rs) -> case f x of
-        Nothing -> mapMaybeL f rs
-        Just y -> y `cons` mapMaybeL f rs
+mapMaybeL = mapMaybeIxL @Int . const
+
+-- `mapMaybeLR` with an index parameter
+mapMaybeIxLR :: (Enum i, Uncons xs x, AsEmpty ys, Snoc ys ys y y) => (i -> x -> Maybe y) -> xs -> ys
+mapMaybeIxLR f = m (toEnum 0) Empty
+  where
+    m i ys xs = case uncons xs of
+        Nothing -> ys
+        Just (x, rs) -> case f i x of
+            Nothing -> m (succ i) ys rs
+            Just y -> m (succ i) (ys `snoc` y) rs
+
+-- Generalized `mapMaybe` using left-reduction via `Uncons` and right-construction via `Snoc`.
+mapMaybeLR :: (Uncons xs x, AsEmpty ys, Cons ys ys y y) => (x -> Maybe y) -> xs -> ys
+mapMaybeLR = mapMaybeIxL @Int . const
 
 {- | Generalized `mapMaybe` using right-reduction and -construction via `Snoc`
     Use `mapMaybeL` if `Cons` is more efficient on the collections.
@@ -370,9 +388,17 @@ mapMaybeL f xs = case uncons xs of
 mapMaybeR :: (Unsnoc xs x, AsEmpty ys, Snoc ys ys y y) => (x -> Maybe y) -> xs -> ys
 mapMaybeR f xs = case unsnoc xs of
     Nothing -> Empty
-    Just (rs, x) -> case f x of
-        Nothing -> mapMaybeR f rs
-        Just y -> mapMaybeR f rs `snoc` y
+    Just (rs, x) -> let ys = mapMaybeR f rs in maybe ys (snoc ys) (f x)
+
+-- Generalized `mapMaybe` using right-reduction via `Unsnoc` and left-construction via `Cons`.
+mapMaybeRL :: (Unsnoc xs x, AsEmpty ys, Cons ys ys y y) => (x -> Maybe y) -> xs -> ys
+mapMaybeRL f = m Empty
+  where
+    m ys xs = case unsnoc xs of
+        Nothing -> ys
+        Just (rs, x) -> case f x of
+            Nothing -> m ys rs
+            Just y -> m (y `cons` ys) rs
 
 -- | Generalized `dropWhile` with an index using `Uncons`
 dropWhileIx :: (Enum i, Uncons xs x) => (i -> x -> Bool) -> xs -> xs
@@ -392,7 +418,7 @@ dropWhileEnd f xs = case unsnoc xs of
     Nothing -> xs
     Just (ys, y) -> if f y then dropWhileEnd f ys else xs
 
--- | Generalized `dropWhile` with an index using `Cons`
+-- | Generalized `takeWhile` with an index using `Cons`
 takeWhileIx :: (Enum i, Cons xs xs x x, AsEmpty xs) => (i -> x -> Bool) -> xs -> xs
 takeWhileIx f = twi (toEnum 0)
   where
