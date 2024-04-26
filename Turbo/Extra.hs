@@ -5,6 +5,7 @@ module Turbo.Extra where
 import Control.Lens qualified as L
 import Data.Foldable qualified as F
 import Data.Functor qualified as Fu
+import Data.List qualified as Ls
 import Data.Text qualified as T
 import Turbo.ExtraTH
 import Turbo.Operators ((<++>), (<:|), (>:|>))
@@ -83,7 +84,7 @@ split f = spl
 
 -- | Trims the left and right sides of a list by some removal predicate
 trim :: (a -> Bool) -> [a] -> [a]
-trim f = dropWhileEnd f . dropWhile f
+trim f = Ls.dropWhileEnd f . Ls.dropWhile f
 
 -- ** Monad Operations
 
@@ -327,6 +328,10 @@ viaNE :: (NonEmpty a -> b) -> [a] -> Maybe b
 viaNE _ [] = Nothing
 viaNE f (x : xs) = Just $ f (x :| xs)
 
+-- * Weaker Lens classes
+
+-- ** uncons
+
 -- | A read-only variant of `Cons`
 class Uncons t a where
     uncons :: t -> Maybe (a, t)
@@ -335,3 +340,106 @@ class Uncons t a where
 instance {-# OVERLAPPABLE #-} (Cons t t a a) => Uncons t a where
     uncons :: t -> Maybe (a, t)
     uncons = L.uncons
+
+-- ** unsnoc
+
+-- | A read-only variant of `Snoc`
+class Unsnoc t a where
+    unsnoc :: t -> Maybe (t, a)
+
+-- | `Unsnoc` is a subclass of `Simple Snoc`
+instance {-# OVERLAPPABLE #-} (Snoc t t a a) => Unsnoc t a where
+    unsnoc :: t -> Maybe (t, a)
+    unsnoc = L.unsnoc
+
+-- * Generic lens-based collection manipulation
+
+{- | Generalized `mapMaybe` using left-reduction and -construction via `Cons`.
+    Use `mapMaybeR` if `Snoc` is more efficient on the collections.
+-}
+mapMaybeL :: (Uncons xs x, AsEmpty ys, Cons ys ys y y) => (x -> Maybe y) -> xs -> ys
+mapMaybeL f xs = case uncons xs of
+    Nothing -> Empty
+    Just (x, rs) -> case f x of
+        Nothing -> mapMaybeL f rs
+        Just y -> y `cons` mapMaybeL f rs
+
+{- | Generalized `mapMaybe` using right-reduction and -construction via `Snoc`
+    Use `mapMaybeL` if `Cons` is more efficient on the collections.
+-}
+mapMaybeR :: (Unsnoc xs x, AsEmpty ys, Snoc ys ys y y) => (x -> Maybe y) -> xs -> ys
+mapMaybeR f xs = case unsnoc xs of
+    Nothing -> Empty
+    Just (rs, x) -> case f x of
+        Nothing -> mapMaybeR f rs
+        Just y -> mapMaybeR f rs `snoc` y
+
+-- | Generalized `dropWhile` with an index using `Uncons`
+dropWhileIx :: (Enum i, Uncons xs x) => (i -> x -> Bool) -> xs -> xs
+dropWhileIx f = dwi (toEnum 0)
+  where
+    dwi i xs = case uncons xs of
+        Just (y, ys) | f i y -> dwi (succ i) ys
+        _ -> xs
+
+-- | Generalized `dropWhile` using `Uncons`
+dropWhile :: (Uncons xs x) => (x -> Bool) -> xs -> xs
+dropWhile = dropWhileIx @Int . const
+
+-- | Generalized `dropWhileEnd` using `Unsnoc`
+dropWhileEnd :: (Unsnoc xs x) => (x -> Bool) -> xs -> xs
+dropWhileEnd f xs = case unsnoc xs of
+    Nothing -> xs
+    Just (ys, y) -> if f y then dropWhileEnd f ys else xs
+
+-- | Generalized `dropWhile` with an index using `Cons`
+takeWhileIx :: (Enum i, Cons xs xs x x, AsEmpty xs) => (i -> x -> Bool) -> xs -> xs
+takeWhileIx f = twi (toEnum 0)
+  where
+    twi i xs = case uncons xs of
+        Just (y, rs) | f i y -> y `cons` twi (succ i) rs
+        _ -> Empty
+
+-- | Generalized `takeWhile` using `Cons`
+takeWhile :: (Cons xs xs x x, AsEmpty xs) => (x -> Bool) -> xs -> xs
+takeWhile = takeWhileIx @Int . const
+
+-- | Generalized `span` using `Cons` to construct the left part
+spanL :: (Uncons xs x, AsEmpty ys, Cons ys ys x x) => (x -> Bool) -> xs -> (ys, xs)
+spanL f xs = case uncons xs of
+    Just (x, rs) | f x -> first (cons x) $ spanL f rs
+    _ -> (Empty, xs)
+
+-- | Generalized `span` using `Snoc` to construct the left part
+spanR :: (Uncons xs x, AsEmpty ys, Snoc ys ys x x) => (x -> Bool) -> xs -> (ys, xs)
+spanR f = s Empty
+  where
+    s ys xs = case uncons xs of
+        Just (y, rs) | f y -> s (ys `snoc` y) rs
+        _ -> (ys, xs)
+
+findIndices :: (Enum i, Uncons xs x) => (x -> Bool) -> xs -> [i]
+findIndices f = fi (toEnum 0)
+  where
+    fi i xs = case uncons xs of
+        Nothing -> []
+        Just (x, rs) -> let ys = fi (succ i) rs in if f x then i : ys else ys
+
+findIndex :: (Enum i, Uncons xs x) => (x -> Bool) -> xs -> Maybe i
+findIndex f xs = case findIndices f xs of
+    [] -> Nothing
+    (i : _) -> Just i
+
+repeatL :: (Cons xs xs x x) => x -> xs
+repeatL x = x `cons` repeatL x
+
+repeatR :: (Snoc xs xs x x) => x -> xs
+repeatR x = repeatR x `snoc` x
+
+replicateL :: (Enum i, AsEmpty xs, Cons xs xs x x) => i -> x -> xs
+replicateL n _ | fromEnum n <= 0 = Empty
+replicateL n x = x `cons` replicateL (pred n) x
+
+replicateR :: (Enum i, AsEmpty xs, Snoc xs xs x x) => i -> x -> xs
+replicateR n _ | fromEnum n <= 0 = Empty
+replicateR n x = replicateR (pred n) x `snoc` x
