@@ -8,7 +8,7 @@ import Data.Text.Internal (Text (..))
 import GHC.Base
 import GHC.Exts
 import GHC.ST
-import Turbo.Prelude hiding (uncons)
+import Turbo.Prelude
 
 -- * Type definitions
 
@@ -127,6 +127,10 @@ instance AtConst LargeText where
             then let !(# d, ch, _ #) = chunkOfChar txt i in Just (T.index ch (I# d))
             else Nothing
 
+instance Uncons LargeText Char where
+    uncons :: LargeText -> Maybe (Char, LargeText)
+    uncons t@(LargeText bs ms o l) = (t @ 0) <& LargeText bs ms (inc# o) (l -# 1#)
+
 -- ** Regular collection interfaces
 
 -- | Retrieves the character at some index and its position. O(1)
@@ -140,10 +144,6 @@ indexPos txt (I# i) =
              in Just (T.head r, Position (I# ln) (I# cn))
         else
             Nothing
-
--- | Attempts to split off the leftmost character. O(1)
-uncons :: LargeText -> Maybe (Char, LargeText)
-uncons t@(LargeText bs ms o l) = (t @ 0) <& LargeText bs ms (inc# o) (l -# 1#)
 
 -- | Attempts to split off the leftmost character and returns its position. O(1)
 unconsPos :: LargeText -> Maybe (Char, Position, LargeText)
