@@ -18,7 +18,7 @@ build-depends:
 	turbo-prelude
 mixins:
 	base hiding (Prelude),
-	turbo-prelude (Turbo.Prelude as Prelude, Control.Attempt, Control.Mapper, Control.SpanBuilder, Data.Or, Data.LargeText, Data.List', Data.SignedSet, Data.Span)
+	turbo-prelude (Turbo.Prelude as Prelude, Control.Attempt, Control.Mapper, Control.SpanBuilder, Data.Or, Data.LargeText, Data.RList, Data.SignedSet, Data.Span)
 ```
 I strongly recommend also adding these extensions:
 ```yml
