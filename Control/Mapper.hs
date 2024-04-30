@@ -74,7 +74,7 @@ pop = SM $ state \s -> case uncons (rest s) of
     Nothing -> (Nothing, s)
 
 -- | Inspects the next token, then decides if it should be consumed and which mapper to continue with
-popWhen :: (Monad m, Uncons r a) => (Maybe a -> (Bool, MapperT b r m a)) -> MapperT b r m a
+popWhen :: (Monad m, Uncons r x) => (Maybe x -> (Bool, MapperT b r m y)) -> MapperT b r m y
 popWhen f = join $ SM $ state \s -> case uncons (rest s) of
     Just (a, r) -> let (y, z) = f (Just a) in (z, if y then s{rest = r} else s)
     Nothing -> (snd $ f Nothing, s)
