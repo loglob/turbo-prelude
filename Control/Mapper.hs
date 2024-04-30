@@ -1,5 +1,5 @@
 -- | Monad for left-to-right (de-)construction
-module Control.Mapper (Builder, BuilderT, Mapper, MapperT (), Reducer, ReducerT, peek, pop, runMapper, runMapperT, trace, trace', yield) where
+module Control.Mapper (Builder, BuilderT, Mapper, MapperT (), Reducer, ReducerT, peek, pop, runMapper, runMapperT, trace, trace', yield, popWhen) where
 
 import Control.Lens.Empty
 import Control.Monad.State
@@ -63,15 +63,21 @@ trace (SM f) = SM do
 trace' :: (Monad m, ISpan r) => MapperT b r m (r -> x) -> MapperT b r m x
 trace' x = uncurry (flip ($)) $> trace x
 
+-- | Previews the next return value of `pop`
+peek :: (Monad m, Uncons r a) => MapperT b r m (Maybe a)
+peek = SM $ gets $ fmap fst . uncons . rest
+
 -- | Consumes a single input token
 pop :: (Monad m, Uncons r a) => MapperT b r m (Maybe a)
 pop = SM $ state \s -> case uncons (rest s) of
     Just (a, r) -> (Just a, s{rest = r})
     Nothing -> (Nothing, s)
 
--- | Previews the next return value of `pop`
-peek :: (Monad m, Uncons r a) => MapperT b r m (Maybe a)
-peek = SM $ gets $ fmap fst . uncons . rest
+-- | Inspects the next token, then decides if it should be consumed and which mapper to continue with
+popWhen :: (Monad m, Uncons r a) => (Maybe a -> (Bool, MapperT b r m a)) -> MapperT b r m a
+popWhen f = join $ SM $ state \s -> case uncons (rest s) of
+    Just (a, r) -> let (y, z) = f (Just a) in (z, if y then s{rest = r} else s)
+    Nothing -> (snd $ f Nothing, s)
 
 -- | Executes a mapping on an input span in some monad
 runMapperT :: (AsEmpty b, Monad m) => MapperT b r m x -> r -> m (b, x, r)
