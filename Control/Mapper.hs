@@ -1,5 +1,5 @@
 -- | Monad for left-to-right (de-)construction
-module Control.Mapper (Builder, BuilderT, Mapper, MapperT (), Reducer, ReducerT, peek, pop, runMapper, runMapperT, trace, trace', yield, popWhen) where
+module Control.Mapper (Builder, BuilderT, Mapper, MapperT (), Reducer, ReducerT, getLastSpan, peek, peekSpan, pop, popWhen, runMapper, runMapperT, trace, trace', yield) where
 
 import Control.Lens.Empty
 import Control.Monad.State
@@ -48,6 +48,23 @@ type Builder b x = forall r. Mapper b r x
 -- | Appends a single value onto the result buffer
 yield :: (Snoc b b x x, Monad m) => x -> MapperT b r m ()
 yield b = SM $ modify $ over output (`snoc` b)
+
+{- | Gets the singleton span immediately to the left of the next input.
+  If no input has been consumed, returns a 0-length span.
+-}
+getLastSpan :: (Monad m, ISpan r) => MapperT b r m r
+getLastSpan =
+    SM $
+        gets rest <§ \r ->
+            let b = baseSpan r
+             in case r `isSliceOf` b of
+                    Nothing -> error "getLeftPos: ISpan instance violates baseSpan law"
+                    Just 0 -> slice 0 0 r
+                    Just n -> slice (n - 1) 1 b
+
+-- | Equivalent to `fst $> trace pop` without advancing state
+peekSpan :: (Monad m, ISpan r) => MapperT b r m r
+peekSpan = SM $ gets rest <§ \r -> takes (signum $ size r) r
 
 -- | Inspects the span consumed by another mapping
 trace :: (Monad m, ISpan r) => MapperT b r m x -> MapperT b r m (r, x)
