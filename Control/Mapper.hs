@@ -1,10 +1,39 @@
 -- | Monad for left-to-right (de-)construction
-module Control.Mapper (Builder, BuilderT, Mapper, MapperT (), Reducer, ReducerT, getLastSpan, peek, peekSpan, pop, popWhen, runMapper, runMapperT, trace, trace', yield) where
+module Control.Mapper (
+    Builder,
+    BuilderS,
+    BuilderT,
+    Mapper,
+    MapperS,
+    MapperT (),
+    Reducer,
+    ReducerT,
+    getLastSpan,
+    peek,
+    peekSpan,
+    pop,
+    popWhen,
+    runBuilder,
+    runBuilderS,
+    runBuilderT,
+    runMapper,
+    runMapperS,
+    runMapperT,
+    runReducer,
+    runReducerT,
+    trace,
+    trace',
+    yield,
+    yieldS,
+) where
 
 import Control.Lens.Empty
 import Control.Monad.State
+import Control.Monad.Trans.State (modifyM)
+import Data.Internal.MutSpan
 import Data.Span
-import GHC.Err (error)
+import GHC.Base
+import GHC.ST
 import Turbo.Prelude
 
 -- * Types
@@ -43,11 +72,20 @@ type BuilderT b m x = forall r. MapperT b r m x
 -- | A `Mapper` that doesn't reduce anything
 type Builder b x = forall r. Mapper b r x
 
+-- | A `Mapper` that produces a span via efficient state thread
+type MapperS b r x = forall s. MapperT (MutSpan s b) r (ST s) x
+
+type BuilderS b x = forall s r. MapperT (MutSpan s b) r (ST s) x
+
 -- * Interface
 
 -- | Appends a single value onto the result buffer
 yield :: (Snoc b b x x, Monad m) => x -> MapperT b r m ()
 yield b = SM $ modify $ over output (`snoc` b)
+
+-- | Variant of `yield` for producing a `Span`
+yieldS :: b -> MapperS b r ()
+yieldS b = SM $ modifyM $ \(S r a) -> ST \s -> let !(# s', a' #) = snocMutSpan a b s in (# s', S r a' #)
 
 {- | Gets the singleton span immediately to the left of the next input.
   If no input has been consumed, returns a 0-length span.
@@ -103,3 +141,35 @@ runMapperT (SM f) r = runStateT f (S r Empty) <§ \(x, S r' b') -> (b', x, r')
 -- | Executes a mapping on an input span
 runMapper :: (AsEmpty b) => MapperT b r Identity x -> r -> (b, x, r)
 runMapper = runIdentity .: runMapperT
+
+-- | Executes a mapping that produces a `Span`
+runMapperS :: MapperS b r x -> r -> (Span b, x, r)
+runMapperS x r0 = runST $ ST $ f x r0
+  where
+    f :: MapperT (MutSpan s b) r (ST s) x -> r -> State# s -> (# State# s, (Span b, x, r) #)
+    f (SM x) r0 s =
+        let !(# s1, arr #) = newMutSpan s
+            ST g = runStateT x (S r0 arr)
+            !(# s2, (a, S r arr') #) = g s1
+            !(# s3, sp #) = unsafeFreezeSpan arr' s2
+         in (# s3, (sp, a, r) #)
+
+-- | Executes a builder without performing a reduction
+runBuilderT :: (AsEmpty b, Monad m) => BuilderT b m x -> m (b, x)
+runBuilderT b = runMapperT b () <§ \(a, b, ()) -> (a, b)
+
+-- | Executes a builder without performing a reduction
+runBuilder :: (AsEmpty b) => Builder b x -> (b, x)
+runBuilder b = runIdentity $ runBuilderT b
+
+-- | Executes a builder that produces a `Span`
+runBuilderS :: BuilderS b x -> (Span b, x)
+runBuilderS b = let (x, y, ()) = runMapperS b () in (x, y)
+
+-- | Executes a reducer without building
+runReducerT :: (Functor m) => ReducerT r m x -> r -> m (x, r)
+runReducerT (SM f) r = runStateT f (S r ()) <§ \(x, S r' ()) -> (x, r')
+
+-- | Executes a reducer without building
+runReducer :: Reducer r x -> r -> (x, r)
+runReducer r = runIdentity . runReducerT r

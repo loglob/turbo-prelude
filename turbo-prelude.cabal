@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.3.6.0
+version:            1.4.0.0
 
 synopsis: Alternate prelude and extra library
 
@@ -13,7 +13,6 @@ library
     exposed-modules:
         Control.Attempt
         Control.Mapper
-        Control.SpanBuilder
         Data.LargeText
         Data.Or
         Data.RList
@@ -29,6 +28,7 @@ library
         primitive,
         template-haskell,
         text,
+        transformers,
         vector
     other-modules:
         Data.Internal.ISpan
