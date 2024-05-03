@@ -157,3 +157,7 @@ forr op at lo hi = loop (hi -# 1#)
         if i `geq#` lo
             then loop (i -# 1#) (at i `op` b)
             else b
+
+-- | Fast implementation for @~ if @ is O(1)
+atConstRev :: (ISpan xs, AtConst xs, Index xs ~ Int) => xs -> Int -> Maybe (IxValue xs)
+atConstRev xs i = xs @ (size xs - i - 1)

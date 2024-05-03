@@ -469,3 +469,18 @@ replicateL n x = x `cons` replicateL (pred n) x
 replicateR :: (Enum i, AsEmpty xs, Snoc xs xs x x) => i -> x -> xs
 replicateR n _ | fromEnum n <= 0 = Empty
 replicateR n x = replicateR (pred n) x `snoc` x
+
+class AtConstRev xs x where
+    -- | Variant of `@` that indexes from the right, with the last element at `0`
+    (@~) :: xs -> Int -> Maybe x
+
+-- | The default, O(n) instance. Overlap with faster variants.
+instance {-# OVERLAPPABLE #-} (Unsnoc xs x) => AtConstRev xs x where
+    (@~) xs i =
+        if i < 0
+            then Nothing
+            else do
+                (ys, y) <- unsnoc xs
+                if i == 0
+                    then Just y
+                    else ys @~ pred i

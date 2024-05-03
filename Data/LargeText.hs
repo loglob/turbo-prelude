@@ -127,6 +127,9 @@ instance AtConst LargeText where
             then let !(# d, ch, _ #) = chunkOfChar txt i in Just (T.index ch (I# d))
             else Nothing
 
+instance AtConstRev LargeText Char where
+    (@~) = atConstRev
+
 instance Uncons LargeText Char where
     uncons :: LargeText -> Maybe (Char, LargeText)
     uncons t@(LargeText bs ms o l) = (t @ 0) <& LargeText bs ms (inc# o) (l -# 1#)

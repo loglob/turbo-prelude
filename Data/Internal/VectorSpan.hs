@@ -63,3 +63,6 @@ instance ISpan (V.Vector v) where
     size = V.length
     slice :: Int -> Int -> V.Vector v -> V.Vector v
     slice = V.slice
+
+instance AtConstRev (V.Vector v) v where
+    (@~) = atConstRev

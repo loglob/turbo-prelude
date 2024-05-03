@@ -85,6 +85,10 @@ instance AtConst (Span a) where
             then Just (at# xs (o +# i))
             else Nothing
 
+instance AtConstRev (Span a) a where
+    (@~) :: Span a -> Int -> Maybe a
+    (@~) = atConstRev
+
 instance Foldable Span where
     foldl :: forall a b. (b -> a -> b) -> b -> Span a -> b
     foldl f b0 (Span o l xs) = for f (at# xs) o (o +# l) b0

@@ -67,6 +67,10 @@ instance AtConst (USpan a) where
             then Just (indexByteArray# xs (i +# o))
             else Nothing
 
+instance AtConstRev (USpan a) a where
+    (@~) :: USpan a -> Int -> Maybe a
+    (@~) = atConstRev
+
 instance Foldable USpan where
     foldl :: (b -> a -> b) -> b -> USpan a -> b
     foldl f b0 (USpan o l bs) = for f (indexByteArray# bs) o (o +# l) b0
