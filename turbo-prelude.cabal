@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.3.5.0
+version:            1.3.6.0
 
 synopsis: Alternate prelude and extra library
 
@@ -33,6 +33,7 @@ library
     other-modules:
         Data.Internal.ISpan
         Data.Internal.Span
+        Data.Internal.MutSpan
         Data.Internal.TextSpan
         Data.Internal.USpan
         Data.Internal.VectorSpan
