@@ -6,9 +6,7 @@ module Data.Internal.USpan (
 
 import Data.Internal.ISpan
 import Data.Primitive
-import Data.Proxy
 import GHC.Base
-import GHC.ST
 import Turbo.Prelude hiding (for)
 
 {- | Segment of a byte array.

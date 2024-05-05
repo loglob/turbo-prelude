@@ -197,7 +197,6 @@ import Data.List as Exp (
     zipWith5,
     zipWith6,
     zipWith7,
-    (!?),
     (++),
  )
 import Data.List qualified as L
@@ -231,6 +230,7 @@ import Data.Maybe as Exp (
  )
 import Data.Monoid as Exp (Monoid (..))
 import Data.Ord as Exp (Ord (..), Ordering (..), clamp, comparing)
+import Data.Proxy as Exp (Proxy (..))
 import Data.Semigroup as Exp (Semigroup (..))
 import Data.Set as Exp (Set)
 import Data.String as Exp (IsString (..), String, lines, unlines, unwords, words)
@@ -246,11 +246,70 @@ import Data.Traversable as Exp (
     mapAccumR,
  )
 import Data.Tuple as Exp (Solo (Solo), curry, fst, getSolo, snd, swap, uncurry)
-import GHC.Base as Exp (($!))
+import GHC.Arr as Exp (Array (..))
+import GHC.Base as Exp (
+    Double#,
+    Float#,
+    Int#,
+    Int16#,
+    Int32#,
+    Int64#,
+    Int8#,
+    State#,
+    Word#,
+    Word16#,
+    Word32#,
+    Word64#,
+    Word8#,
+    divInt#,
+    divInt16#,
+    divInt32#,
+    divInt8#,
+    divModInt#,
+    divModInt16#,
+    divModInt32#,
+    divModInt8#,
+    getSizeofMutableByteArray#,
+    getSizeofSmallMutableArray#,
+    isTrue#,
+    sizeofArray#,
+    sizeofByteArray#,
+    sizeofMutableArray#,
+    sizeofSmallArray#,
+    unsafePtrEquality#,
+    ($!),
+    (*#),
+    (+#),
+    (-#),
+ )
 import GHC.Enum as Exp (Bounded (..), Enum (..))
+import GHC.Exts as Exp (
+    Array#,
+    ByteArray#,
+    MutableArray#,
+    MutableByteArray#,
+    SmallArray#,
+    SmallMutableArray#,
+    indexArray#,
+    indexSmallArray#,
+    newArray#,
+    newByteArray#,
+    newSmallArray#,
+    readArray#,
+    readSmallArray#,
+    resizeMutableByteArray#,
+    resizeSmallMutableArray#,
+    shrinkMutableByteArray#,
+    shrinkSmallMutableArray#,
+    unsafeFreezeArray#,
+    unsafeFreezeByteArray#,
+    unsafeFreezeSmallArray#,
+    writeArray#,
+    writeSmallArray#,
+ )
 import GHC.Float as Exp (
-    Double,
-    Float,
+    Double (..),
+    Float (..),
     Floating (..),
     RealFloat (..),
     floatToDigits,
@@ -278,6 +337,10 @@ import GHC.Real as Exp (
     (%),
     (^),
     (^^),
+ )
+import GHC.ST as Exp (
+    ST (..),
+    runST,
  )
 import GHC.Show as Exp (
     Show (..),

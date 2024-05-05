@@ -1,6 +1,7 @@
 module Data.Internal.ISpan where
 
-import GHC.Base
+import GHC.Err
+import GHC.Exts
 import Turbo.Prelude
 
 -- ** Span class

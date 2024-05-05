@@ -7,9 +7,8 @@ module Data.Internal.Span (
 ) where
 
 import Data.Internal.ISpan
-import GHC.Arr (Array (..))
-import GHC.Base
-import GHC.Exts (resizeSmallMutableArray#)
+import GHC.Err (error, undefined)
+import GHC.Exts (RuntimeRep (..), TYPE)
 import GHC.ST
 import Turbo.Prelude hiding (for)
 
