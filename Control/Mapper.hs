@@ -9,11 +9,14 @@ module Control.Mapper (
     MapperT (),
     Reducer,
     ReducerT,
+    buildLocal,
+    buildLocal',
     getLastSpan,
     peek,
     peekSpan,
     pop,
     popWhen,
+    reduceLocal,
     runBuilder,
     runBuilderS,
     runBuilderT,
@@ -84,6 +87,8 @@ type MapperST b r x = forall s. MapperT (b s) r (ST s) x
 
 -- * Interface
 
+-- ** Building
+
 -- | Appends a single value onto the result buffer
 yield :: (Snoc b b x x, Monad m) => x -> MapperT b r m ()
 yield = yield' id
@@ -99,6 +104,8 @@ yieldS x = yieldS' id x
 -- | Variant of `yieldS` inside a lens
 yieldS' :: Lens' b (MutSpan s x) -> x -> MapperT b r (ST s) ()
 yieldS' l x = SM $ modifyM $ output $ l \b -> snocMutSpan b x
+
+-- ** Reducing
 
 {- | Gets the singleton span immediately to the left of the next input.
   If no input has been consumed, returns a 0-length span.
@@ -146,6 +153,27 @@ popWhen :: (Monad m, Uncons r x) => (Maybe x -> (Bool, MapperT b r m y)) -> Mapp
 popWhen f = join $ SM $ state \s -> case uncons (rest s) of
     Just (a, r) -> let (y, z) = f (Just a) in (z, if y then s{rest = r} else s)
     Nothing -> (snd $ f Nothing, s)
+
+-- ** Embedding
+
+-- | Runs a mapper inside a monad and isolates its build result
+buildLocal' :: (Monad m) => m b -> MapperT b r m x -> MapperT b' r m (b, x)
+buildLocal' b0 (SM (StateT f)) = SM $ StateT \(S r b') -> do
+    e <- b0
+    (x, S r' b) <- f (S r e)
+    return ((b, x), S r' b')
+
+-- | Runs a mapper and isolates its build result
+buildLocal :: (AsEmpty b, Monad m) => MapperT b r m x -> MapperT b' r m (b, x)
+buildLocal = buildLocal' (return Empty)
+
+-- | Runs a mapper and isolated its input
+reduceLocal :: (Monad m) => MapperT b r m x -> r -> MapperT b r' m (x, r)
+reduceLocal (SM (StateT f)) r0 = SM $ StateT \(S r' b) -> do
+    (x, S r b') <- f (S r0 b)
+    return ((x, r), S r' b')
+
+-- ** Deconstruction
 
 -- | Executes a mapping on an input span in some monad
 runMapperT :: (AsEmpty b, Monad m) => MapperT b r m x -> r -> m (b, x, r)
