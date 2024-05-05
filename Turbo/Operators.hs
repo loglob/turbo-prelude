@@ -8,7 +8,6 @@ import Control.Applicative qualified as A
 import Control.Monad qualified as M
 import Control.Monad.State
 import Data.Functor qualified as F
-import GHC.Base (seq)
 import Turbo.OperatorsTH
 import Turbo.RootPrelude
 
@@ -39,13 +38,13 @@ infixr 0 $$!, $$$!, $$$$!
 {-# INLINE ($$$$!) #-}
 
 -- | Strict variant of `$$` that ensures each argument is in WHNF before applying `f`
-f $$! (a, b) = let !a' = a in let !b' = b in f a' b'
+f $$! (!a, !b) = f a b
 
 -- | Strict variant of `$$$` that ensures each argument is in WHNF before applying `f`
-f $$$! (a, b, c) = let !a' = a in let !b' = b in let !c' = c in f a' b' c'
+f $$$! (!a, !b, !c) = f a b c
 
 -- | Strict variant of `$$$$` that ensures each argument is in WHNF before applying `f`
-f $$$$! (a, b, c, d) = let !a' = a in let !b' = b in let !c' = c in let !d' = d in f a' b' c' d'
+f $$$$! (!a, !b, !c, !d) = f a b c d
 
 infixr 4 $!>, $$!>, $$$!>, $$$$!>
 {-# INLINE ($!>) #-}
@@ -62,20 +61,20 @@ infixr 4 $!>, $$!>, $$$!>, $$$$!>
 -- | Strict variant of `$$>`
 f $$!> m = do
     (a, b) <- m
-    let x = f a b
-    x `seq` return x
+    let !x = f a b
+    return x
 
 -- | Strict variant of `$$$>`
 f $$$!> m = do
     (a, b, c) <- m
-    let x = f a b c
-    x `seq` return x
+    let !x = f a b c
+    return x
 
 -- | Strict variant of `$$$$>`
 f $$$$!> m = do
     (a, b, c, d) <- m
-    let x = f a b c d
-    x `seq` return x
+    let !x = f a b c d
+    return x
 
 makeLeftWrapper '($!)
 makeLeftWrapper '($$!)
