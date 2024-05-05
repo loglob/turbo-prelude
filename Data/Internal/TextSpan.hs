@@ -60,10 +60,10 @@ instance ISpan Text where
     overlap (Text (ByteArray xs) o n) (Text (ByteArray ys) p m) = case unsafePtrEquality# xs ys of
         1# ->
             let oR = max o p
-             in let hR = min (o + n) (p + m)
-                 in if oR <= hR
-                        then Just (Text (ByteArray xs) oR (hR - oR))
-                        else Nothing
+                hR = min (o + n) (p + m)
+             in if oR <= hR
+                    then Just (Text (ByteArray xs) oR (hR - oR))
+                    else Nothing
         _ -> Nothing
     ptrCmp :: Text -> Text -> Maybe Ordering
     ptrCmp (Text (ByteArray xs) o _) (Text (ByteArray ys) p _) = case unsafePtrEquality# xs ys of

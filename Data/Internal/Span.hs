@@ -90,9 +90,9 @@ instance AtConstRev (Span a) a where
     (@~) = atConstRev
 
 instance Foldable Span where
-    foldl :: forall a b. (b -> a -> b) -> b -> Span a -> b
+    foldl :: (b -> a -> b) -> b -> Span a -> b
     foldl f b0 (Span o l xs) = for f (at# xs) o (o +# l) b0
-    foldr :: forall a b. (a -> b -> b) -> b -> Span a -> b
+    foldr :: (a -> b -> b) -> b -> Span a -> b
     foldr f b0 (Span o l xs) = forr f (at# xs) o (o +# l) b0
     null (Span _ l _) = l `eq#` 0#
     length (Span _ l _) = I# l
@@ -120,15 +120,15 @@ fromSArray# :: SmallArray# a -> Span a
 fromSArray# a = Span 0# (sizeofSmallArray# a) (# | a #)
 
 -- | Allocates a list to a small array, then creates an equivalent span
-fromList :: forall a. [a] -> Span a
+fromList :: [a] -> Span a
 fromList = \xs -> runST (ST (f xs))
   where
     f :: [a] -> State# s -> (# State# s, Span a #)
     f xs s =
         let siz = 128#
-         in let !(# s1, mut #) = newSmallArray# siz (undefined :: a) s
-             in let !(# s2, cop #) = copy s1 siz mut 0# xs
-                 in (# s2, fromSArray# cop #)
+            !(# s1, mut #) = newSmallArray# siz (undefined :: a) s
+            !(# s2, cop #) = copy s1 siz mut 0# xs
+         in (# s2, fromSArray# cop #)
     -- \| Copies a list into an array
     --   - $1: state thread
     --   - $2: Capacity of $3
@@ -139,13 +139,13 @@ fromList = \xs -> runST (ST (f xs))
     copy :: State# s -> Int# -> SmallMutableArray# s a -> Int# -> [a] -> (# State# s, SmallArray# a #)
     copy s _ arr l [] =
         let s1 = shrinkSmallMutableArray# arr l s
-         in let !(# s2, arr' #) = unsafeFreezeSmallArray# arr s1
-             in (# s2, arr' #)
+            !(# s2, arr' #) = unsafeFreezeSmallArray# arr s1
+         in (# s2, arr' #)
     copy s c arr l xs
         | c `eq#` l =
             let l' = 2# *# l
-             in let !(# s', arr' #) = resizeSmallMutableArray# arr l' undefined s
-                 in copy s' l' arr' l xs
+                !(# s', arr' #) = resizeSmallMutableArray# arr l' undefined s
+             in copy s' l' arr' l xs
     copy s c arr l (x : xs) =
         let s' = writeSmallArray# arr l x s
          in copy s' c arr (inc# l) xs

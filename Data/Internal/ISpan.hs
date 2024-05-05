@@ -123,7 +123,6 @@ _overlap o l o' l' =
      in if isTrue# (oR <=# hR)
             then (# oR, (hR -# oR) #)
             else (# -1#, -1# #)
-  where
 
 {- | Bounds-checks a slicing operation
 takes (offset, length) pairs, slice first, then array

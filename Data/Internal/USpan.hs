@@ -97,20 +97,20 @@ fromListU = \xs -> runST (ST (f xs))
     f :: [a] -> State# s -> (# State# s, USpan a #)
     f xs s =
         let n = 128#
-         in let !(# s1, mut #) = newByteArray# (n *# siz) s
-             in let !(# s2, cop, l #) = copy s1 n mut 0# xs
-                 in (# s2, USpan 0# l cop #)
+            !(# s1, mut #) = newByteArray# (n *# siz) s
+            !(# s2, cop, l #) = copy s1 n mut 0# xs
+         in (# s2, USpan 0# l cop #)
     siz = sizeOfType# (Proxy :: Proxy a)
     copy :: State# s -> Int# -> MutableByteArray# s -> Int# -> [a] -> (# State# s, ByteArray#, Int# #)
     copy s _ arr l [] =
         let !(# s1, arr1 #) = resizeMutableByteArray# arr (l *# siz) s
-         in let !(# s2, arr2 #) = unsafeFreezeByteArray# arr1 s1
-             in (# s2, arr2, l #)
+            !(# s2, arr2 #) = unsafeFreezeByteArray# arr1 s1
+         in (# s2, arr2, l #)
     copy s c arr l xs
         | c `eq#` l =
             let l' = 2# *# l
-             in let !(# s', arr' #) = resizeMutableByteArray# arr (l' *# siz) s
-                 in copy s' l' arr' l xs
+                !(# s', arr' #) = resizeMutableByteArray# arr (l' *# siz) s
+             in copy s' l' arr' l xs
     copy s c arr l (x : xs) =
         let s' = writeByteArray# arr l x s
          in copy s' c arr (inc# l) xs
