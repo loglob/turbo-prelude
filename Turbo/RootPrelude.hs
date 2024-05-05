@@ -246,7 +246,6 @@ import Data.Traversable as Exp (
     mapAccumR,
  )
 import Data.Tuple as Exp (Solo (Solo), curry, fst, getSolo, snd, swap, uncurry)
-import GHC.Arr as Exp (Array (..))
 import GHC.Base as Exp (
     Double#,
     Float#,

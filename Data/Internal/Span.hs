@@ -7,6 +7,7 @@ module Data.Internal.Span (
 ) where
 
 import Data.Internal.ISpan
+import GHC.Arr (Array (..))
 import GHC.Err (error, undefined)
 import GHC.Exts (RuntimeRep (..), TYPE)
 import GHC.ST
