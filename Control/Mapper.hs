@@ -31,13 +31,11 @@ module Control.Mapper (
     yieldS',
 ) where
 
-import Control.Lens.Empty
 import Control.Monad.State
 import Control.Monad.Trans.State (modifyM)
-import Data.Internal.MutSpan
+import Data.Primitive (Prim)
 import Data.Span
-import GHC.Base
-import GHC.ST
+import GHC.Err (error)
 import Turbo.Prelude
 
 -- * Types
@@ -100,7 +98,7 @@ yieldS x = yieldS' id x
 
 -- | Variant of `yieldS` inside a lens
 yieldS' :: Lens' b (MutSpan s x) -> x -> MapperT b r (ST s) ()
-yieldS' l x = SM $ modifyM $ output $ l \b -> ST (snocMutSpan b x)
+yieldS' l x = SM $ modifyM $ output $ l \b -> snocMutSpan b x
 
 {- | Gets the singleton span immediately to the left of the next input.
   If no input has been consumed, returns a 0-length span.
@@ -158,8 +156,8 @@ runMapper :: (AsEmpty b) => MapperT b r Identity x -> r -> (b, x, r)
 runMapper = runIdentity .: runMapperT
 
 -- | Executes a mapping that produces a `Span`
-runMapperS :: MapperS b r x -> r -> (Span b, x, r)
-runMapperS m r0 = runST $ runMapperST (ST newMutSpan) (\b -> ST $ unsafeFreezeSpan b) m r0
+runMapperS :: (Prim b) => MapperS b r x -> r -> (Span b, x, r)
+runMapperS m r0 = runST $ runMapperST newMutSpan unsafeFreezeSpan m r0
 
 -- | Executes a mapping inside the ST monad with lifted computations for the build result
 runMapperST :: ST s b -> (b -> ST s b') -> MapperT b r (ST s) x -> r -> ST s (b', x, r)
@@ -178,7 +176,7 @@ runBuilder :: (AsEmpty b) => Builder b x -> (b, x)
 runBuilder b = runIdentity $ runBuilderT b
 
 -- | Executes a builder that produces a `Span`
-runBuilderS :: BuilderS b x -> (Span b, x)
+runBuilderS :: (Prim b) => BuilderS b x -> (Span b, x)
 runBuilderS b = let (x, y, ()) = runMapperS b () in (x, y)
 
 -- | Executes a reducer without building
