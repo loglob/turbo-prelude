@@ -5,6 +5,7 @@ module Control.Mapper (
     BuilderT,
     Mapper,
     MapperS,
+    MapperST,
     MapperT (),
     Reducer,
     ReducerT,
@@ -18,13 +19,16 @@ module Control.Mapper (
     runBuilderT,
     runMapper,
     runMapperS,
+    runMapperST,
     runMapperT,
     runReducer,
     runReducerT,
     trace,
     trace',
     yield,
+    yield',
     yieldS,
+    yieldS',
 ) where
 
 import Control.Lens.Empty
@@ -77,15 +81,26 @@ type MapperS b r x = forall s. MapperT (MutSpan s b) r (ST s) x
 
 type BuilderS b x = forall s r. MapperT (MutSpan s b) r (ST s) x
 
+-- | A `Mapper` that builds within the `ST` monad
+type MapperST b r x = forall s. MapperT (b s) r (ST s) x
+
 -- * Interface
 
 -- | Appends a single value onto the result buffer
 yield :: (Snoc b b x x, Monad m) => x -> MapperT b r m ()
-yield b = SM $ modify $ over output (`snoc` b)
+yield = yield' id
+
+-- | Variant of `yield` inside a lens
+yield' :: (Snoc b' b' x x, Monad m) => Lens' b b' -> x -> MapperT b r m ()
+yield' l b = SM $ modify $ over (output . l) (`snoc` b)
 
 -- | Variant of `yield` for producing a `Span`
-yieldS :: b -> MapperS b r ()
-yieldS b = SM $ modifyM $ \(S r a) -> ST \s -> let !(# s', a' #) = snocMutSpan a b s in (# s', S r a' #)
+yieldS :: x -> MapperS x r ()
+yieldS x = yieldS' id x
+
+-- | Variant of `yieldS` inside a lens
+yieldS' :: Lens' b (MutSpan s x) -> x -> MapperT b r (ST s) ()
+yieldS' l x = SM $ modifyM $ output $ l \b -> ST (snocMutSpan b x)
 
 {- | Gets the singleton span immediately to the left of the next input.
   If no input has been consumed, returns a 0-length span.
@@ -144,15 +159,15 @@ runMapper = runIdentity .: runMapperT
 
 -- | Executes a mapping that produces a `Span`
 runMapperS :: MapperS b r x -> r -> (Span b, x, r)
-runMapperS x r0 = runST $ ST $ f x r0
-  where
-    f :: MapperT (MutSpan s b) r (ST s) x -> r -> State# s -> (# State# s, (Span b, x, r) #)
-    f (SM x) r0 s =
-        let !(# s1, arr #) = newMutSpan s
-            ST g = runStateT x (S r0 arr)
-            !(# s2, (a, S r arr') #) = g s1
-            !(# s3, sp #) = unsafeFreezeSpan arr' s2
-         in (# s3, (sp, a, r) #)
+runMapperS m r0 = runST $ runMapperST (ST newMutSpan) (\b -> ST $ unsafeFreezeSpan b) m r0
+
+-- | Executes a mapping inside the ST monad with lifted computations for the build result
+runMapperST :: ST s b -> (b -> ST s b') -> MapperT b r (ST s) x -> r -> ST s (b', x, r)
+runMapperST init fin (SM f) r0 = do
+    b0 <- init
+    (x, S r b) <- runStateT f (S r0 b0)
+    b' <- fin b
+    return (b', x, r)
 
 -- | Executes a builder without performing a reduction
 runBuilderT :: (AsEmpty b, Monad m) => BuilderT b m x -> m (b, x)
