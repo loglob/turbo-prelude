@@ -470,6 +470,28 @@ replicateR :: (Enum i, AsEmpty xs, Snoc xs xs x x) => i -> x -> xs
 replicateR n _ | fromEnum n <= 0 = Empty
 replicateR n x = replicateR (pred n) x `snoc` x
 
+-- | Shows a list with functions for elements and for intercalating, via left-reduction
+showsListL :: (Uncons xs x) => (x -> ShowS) -> ShowS -> xs -> ShowS
+showsListL f i = sh
+  where
+    sh xs = case uncons xs of
+        Nothing -> id
+        Just (y, ys) -> f y . sh' ys
+    sh' xs = case uncons xs of
+        Nothing -> id
+        Just (y, ys) -> i . f y . sh' ys
+
+-- | Shows a list with a functions for elements and for intercalating, via right-reduction
+showsListR :: (Unsnoc xs x) => (x -> ShowS) -> ShowS -> xs -> ShowS
+showsListR f i = sh
+  where
+    sh xs = case unsnoc xs of
+        Nothing -> id
+        Just (ys, y) -> sh' ys . f y
+    sh' xs = case unsnoc xs of
+        Nothing -> id
+        Just (ys, y) -> sh' ys . f y . i
+
 class AtConstRev xs x where
     -- | Variant of `@` that indexes from the right, with the last element at `0`
     (@~) :: xs -> Int -> Maybe x
