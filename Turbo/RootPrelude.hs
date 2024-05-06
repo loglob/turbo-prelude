@@ -344,7 +344,6 @@ import GHC.ST as Exp (
 import GHC.Show as Exp (
     Show (..),
     ShowS,
-    showList__,
     showLitChar,
     showLitString,
     showParen,
