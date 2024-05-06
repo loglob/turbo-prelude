@@ -133,6 +133,10 @@ instance Uncons LargeText Char where
     uncons :: LargeText -> Maybe (Char, LargeText)
     uncons t@(LargeText bs ms o l) = (t @ 0) <& LargeText bs ms (inc# o) (l -# 1#)
 
+instance Unsnoc LargeText Char where
+    unsnoc :: LargeText -> Maybe (LargeText, Char)
+    unsnoc t@(LargeText bs ms o l) = LargeText bs ms o (l -# 1#) &> (t @~ 0)
+
 -- ** Regular collection interfaces
 
 -- | Retrieves the character at some index and its position. O(1)

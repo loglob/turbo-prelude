@@ -85,6 +85,11 @@ instance Uncons (USpan a) a where
     uncons (USpan _ 0# _) = Nothing
     uncons (USpan o n xs) = Just (indexByteArray# xs o, USpan (o +# 1#) (n -# 1#) xs)
 
+instance Unsnoc (USpan a) a where
+    unsnoc :: USpan a -> Maybe (USpan a, a)
+    unsnoc (USpan _ 0# _) = Nothing
+    unsnoc (USpan o n xs) = Just (USpan o (n -# 1#) xs, indexByteArray# xs (o +# n -# 1#))
+
 fromBytes# :: forall a. (Prim a) => ByteArray# -> USpan a
 fromBytes# bs = USpan 0# (capacity (Proxy :: Proxy a) bs) bs
 

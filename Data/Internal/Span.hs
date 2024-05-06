@@ -105,6 +105,11 @@ instance Uncons (Span a) a where
     uncons (Span _ 0# _) = Nothing
     uncons (Span o n xs) = Just (xs `at#` o, Span (o +# 1#) (n -# 1#) xs)
 
+instance Unsnoc (Span a) a where
+    unsnoc :: Span a -> Maybe (Span a, a)
+    unsnoc (Span _ 0# _) = Nothing
+    unsnoc (Span o n xs) = Just (Span o (n -# 1#) xs, xs `at#` (o +# n -# 1#))
+
 {- | Aliases an array as a span.
  Discards index types completely, rebasing the array to 0.
 -}
