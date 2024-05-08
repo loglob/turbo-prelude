@@ -506,3 +506,11 @@ instance {-# OVERLAPPABLE #-} (Unsnoc xs x) => AtConstRev xs x where
                 if i == 0
                     then Just y
                     else ys @~ pred i
+
+infixr 5 :<
+pattern (:<) :: Uncons t a => a -> t -> t
+pattern (:<) x xs <- (uncons -> Just (x,xs))
+
+infixl 5 :>
+pattern (:>) :: Unsnoc t a => t -> a -> t
+pattern (:>) x xs <- (unsnoc -> Just (x,xs))
