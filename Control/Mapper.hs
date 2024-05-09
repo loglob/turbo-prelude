@@ -12,9 +12,12 @@ module Control.Mapper (
     buildLocal,
     buildLocal',
     getLastSpan,
+    munch,
     peek,
     peekSpan,
     pop,
+    popIf,
+    popJust,
     popWhen,
     reduceLocal,
     runBuilder,
@@ -153,6 +156,24 @@ popWhen :: (Monad m, Uncons r x) => (Maybe x -> (Bool, MapperT b r m y)) -> Mapp
 popWhen f = join $ SM $ state \s -> case uncons (rest s) of
     Just (a, r) -> let (y, z) = f (Just a) in (z, if y then s{rest = r} else s)
     Nothing -> (snd $ f Nothing, s)
+
+-- | Discards input while a predicate is fulfilled
+munch :: (Uncons r x, Monad m) => (x -> Bool) -> MapperT b r m ()
+munch f = popWhen \case
+    Just x | f x -> (True, munch f)
+    _ -> (False, return ())
+
+-- | Consumes a token only if a predicate holds
+popIf :: (Monad m, Uncons r x) => (x -> Bool) -> MapperT b r m Bool
+popIf f = popWhen \case
+    Just x -> let y = f x in (y, return y)
+    Nothing -> (False, return False)
+
+-- | Consumes a token only if an optional computation succeeds
+popJust :: (Monad m, Uncons r x) => (x -> Maybe y) -> MapperT b r m (Maybe y)
+popJust f = popWhen \case
+    Just x -> let y = f x in (isJust y, return y)
+    Nothing -> (False, return Nothing)
 
 -- ** Embedding
 
