@@ -12,7 +12,7 @@ data RList a
       Nil
     | -- | Append to the right
       RList a :! a
-    deriving (Eq, Ord, Functor)
+    deriving (Eq, Ord, Functor, Traversable)
 
 -- | Converts an `RList` to a normal list and reverses it
 toRevList :: RList a -> [a]
