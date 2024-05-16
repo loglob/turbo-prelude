@@ -7,6 +7,7 @@ import Data.Text qualified as T
 import Data.Text.Internal (Text (..))
 import GHC.Err (error, undefined)
 import GHC.Exts
+import Turbo.Internal.Classes
 import Turbo.Prelude
 
 -- * Type definitions

@@ -11,6 +11,7 @@ import GHC.Arr (Array (..))
 import GHC.Err (error, undefined)
 import GHC.Exts (RuntimeRep (..), TYPE)
 import GHC.ST
+import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
 
 {- | Permit either small or regular arrays

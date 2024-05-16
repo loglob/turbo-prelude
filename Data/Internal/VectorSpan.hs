@@ -6,6 +6,7 @@ import Data.Internal.ISpan
 import Data.Primitive.Array (Array (..))
 import Data.Vector qualified as V
 import GHC.Err (error)
+import Turbo.Internal.Classes
 import Turbo.Prelude
 
 instance ISpan (V.Vector v) where

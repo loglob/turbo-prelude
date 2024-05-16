@@ -6,8 +6,8 @@ module Turbo.Operators where
 
 import Control.Applicative qualified as A
 import Control.Monad qualified as M
-import Control.Monad.State
 import Data.Functor qualified as F
+import Turbo.Internal.Classes
 import Turbo.OperatorsTH
 import Turbo.RootPrelude
 
@@ -250,16 +250,6 @@ g ~> f = fmap (g ~) f
 (<~>) = liftA2 (~)
 
 -- * General indexing function
-
--- | A weaker variant of `At` that cannot be written to
-class AtConst m where
-    infixl 9 @
-
-    -- | Resolves a possibly absent index
-    (@) :: m -> Index m -> Maybe (IxValue m)
-
-instance {-# OVERLAPPABLE #-} (Ixed m) => AtConst m where
-    x @ i = execState ((ix i) (\y -> put (Just y) >> return y) x) Nothing
 
 -- Can't use template due to "Illegal variable name: ‘~’"
 infixl 4 <@, @>, <@>
