@@ -15,6 +15,9 @@ tup ts = foldl AppT (TupleT $ length ts) ts
 fun :: [Type] -> Type -> Type
 fun ts t = foldr (→) t ts
 
+tv :: Name -> TyVarBndr Specificity
+tv a = PlainTV a SpecifiedSpec
+
 mkTupleMap :: Int -> Q [Dec]
 mkTupleMap n = do
     let nm = mkName ("map" ++ show n)

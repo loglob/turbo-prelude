@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-missing-signatures #-}
-
 -- | Lots of `mapMaybe*` variants
 module Turbo.Internal.MapMaybe where
 

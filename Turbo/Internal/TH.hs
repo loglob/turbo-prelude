@@ -47,19 +47,44 @@ mkOneMap i o m s r b =
         xs = mkName "xs"
         ys = mkName "ys"
         x = mkName "x"
+        y = mkName "y"
         j = mkName "i"
+        mT = mkName "m"
+        mW t = if m then VarT mT `AppT` t else t
+        t =
+            ForallT
+                ( _if i [tv j]
+                    ++ _if m [tv mT]
+                    ++ [tv y, tv x, tv xs, tv ys]
+                )
+                ( _if i [ConT ''Enum `AppT` VarT j]
+                    ++ _if (not s) [ConT ''AsEmpty `AppT` VarT ys]
+                    ++ _if m [ConT ''Monad `AppT` VarT mT]
+                    ++ [ ConT (if r then ''Uncons else ''Unsnoc) `AppT` VarT xs `AppT` VarT x,
+                         ConT (if b then ''Cons else ''Snoc) `AppT` VarT ys `AppT` VarT ys `AppT` VarT y `AppT` VarT y,
+                         ConT ''Uncons `AppT` VarT xs `AppT` VarT x
+                       ]
+                )
+                ( fun
+                    ( fun (_if i [VarT j] ++ [VarT x]) (mW ((if o then (ConT ''Maybe `AppT`) else id) (VarT y)))
+                        : VarT xs
+                        : _if s [VarT ys]
+                    )
+                    (mW (VarT ys))
+                )
         f' =
             LamE
                 (_if regular [if i then VarP j else SigP WildP (ConT ''Int)] ++ [VarP x])
                 ( (if m then id else AppE (ConE 'Identity)) $
-                    (if o then id else AppE (ConE 'Just)) $
+                    (if o then id else if m then AppE (VarE 'fmap `AppE` ConE 'Just) else AppE (ConE 'Just)) $
                         (`AppE` VarE x) $
                             (if i then (`AppE` (VarE j)) else id) $
                                 VarE f
                 )
      in
         return
-            [ PragmaD (InlineP n Inline FunLike AllPhases),
+            [ SigD n t,
+              PragmaD (InlineP n Inline FunLike AllPhases),
               FunD
                 n
                 [ Clause
@@ -100,7 +125,6 @@ mkOneSpan s i m l =
         x = mkName "x"
         j = mkName "i"
         mT = mkName "m"
-        tv a = PlainTV a SpecifiedSpec
         mW t = if m then VarT mT `AppT` t else t
         t =
             ForallT
