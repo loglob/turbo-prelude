@@ -25,7 +25,6 @@ mkTupleMap n = do
     xs <- mapM newName $ replicate n "x"
     let a = VarT $ mkName "a"
     let b = VarT $ mkName "b"
-    let
     return
         [ SigD nm ((a → b) → tup (replicate n a) → tup (replicate n b)),
           FunD
@@ -45,9 +44,8 @@ mkTupleColl n = do
     let nm = mkName ("list" ++ show n)
     xs <- mapM newName $ replicate n "x"
     let a = VarT $ mkName "a"
-    let tup t = foldl AppT (TupleT n) (replicate n t)
     return
-        [ SigD nm (tup a → (ListT `AppT` a)),
+        [ SigD nm (tup (replicate n a) → (ListT `AppT` a)),
           FunD
             nm
             [ Clause [TupP (fmap VarP xs)] (NormalB $ ListE $ VarE `fmap` xs) []

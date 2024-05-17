@@ -109,16 +109,17 @@ mkAllMaps = mk
         (i, o, m, s, r, b) -> mkOneMap i o m s r b
 
 {- | Generates span* variants
-    $1: in situ
-    $2: with Index
-    $3: with monad
-    $4: L/R
+    $1: is *End*
+    $2: in situ
+    $3: with Index
+    $4: with monad
+    $5: L/R
 -}
-mkOneSpan :: Bool -> Bool -> Bool -> Bool -> Q [Dec]
-mkOneSpan s i m l =
+mkOneSpan :: Bool -> Bool -> Bool -> Bool -> Bool -> Q [Dec]
+mkOneSpan e s i m l =
     let
-        name = mkName $ "span" ++ _if s "s" ++ _if i "Ix" ++ (if l then "L" else "R") ++ _if m "M"
-        base = mkName $ "spansIx" ++ (if l then "L" else "R") ++ "M"
+        name = mkName $ "span" ++ _if s "s" ++ _if e "End" ++ _if i "Ix" ++ (if l then "L" else "R") ++ _if m "M"
+        base = mkName $ "spans" ++ (if e then "End" else "Ix") ++ (if l then "L" else "R") ++ "M"
         f = mkName "f"
         xs = mkName "xs"
         ys = mkName "ys"
@@ -136,7 +137,7 @@ mkOneSpan s i m l =
                     ++ _if (not s) [ConT ''AsEmpty `AppT` VarT ys]
                     ++ _if m [ConT ''Monad `AppT` VarT mT]
                     ++ [ ConT (if l then ''Cons else ''Snoc) `AppT` VarT ys `AppT` VarT ys `AppT` VarT x `AppT` VarT x,
-                         ConT ''Uncons `AppT` VarT xs `AppT` VarT x
+                         ConT (if e then ''Unsnoc else ''Uncons) `AppT` VarT xs `AppT` VarT x
                        ]
                 )
                 ( fun
@@ -144,11 +145,11 @@ mkOneSpan s i m l =
                         : VarT xs
                         : _if s [VarT ys]
                     )
-                    (mW (tup [VarT ys, VarT xs]))
+                    (mW (tup $ (if e then reverse else id) [VarT ys, VarT xs]))
                 )
         f' =
             LamE
-                ((if i then VarP j else SigP WildP (ConT ''Int)) : [VarP x])
+                (_if (not e) [if i then VarP j else SigP WildP (ConT ''Int)] ++ [VarP x])
                 ( (if m then id else AppE (ConE 'Identity)) $
                     (`AppE` VarE x) $
                         (if i then (`AppE` (VarE j)) else id) $
@@ -175,6 +176,7 @@ mkAllSpans :: Q [Dec]
 mkAllSpans = mk
   where
     tf = [True, False]
-    mk = fmap concat $ forM (tf <&> tf <.&> tf <..&> tf) \case
-        (True, True, True, _) -> return []
-        (s, i, m, l) -> mkOneSpan s i m l
+    mk = fmap concat $ forM (tf <&> tf <.&> tf <..&> tf <.:&> tf) \case
+        (e, True, i, True, _) | e /= i -> return []
+        (True, _, True, _, _) -> return []
+        (e, s, i, m, l) -> mkOneSpan e s i m l

@@ -95,8 +95,6 @@ takeEndWhile f = runIdentity . takeEndWhileM (Identity . f)
 
 -- * span*
 
--- ** With index, with pre-/suffix, inside monad
-
 spansIxLM :: (Enum i, Uncons xs x, Cons ys ys x x, Monad m) => (i -> x -> m Bool) -> xs -> ys -> m (ys, xs)
 spansIxLM f xs0 ys0 = si (toEnum 0) xs0
   where
@@ -116,6 +114,26 @@ spansIxRM f = si (toEnum 0)
                 True -> si (succ i) rs (ys `snoc` x)
                 False -> return (ys, xs)
         Nothing -> return (ys, xs)
+
+spansEndRM :: (Unsnoc xs x, Snoc ys ys x x, Monad m) => (x -> m Bool) -> xs -> ys -> m (xs, ys)
+spansEndRM f xs0 ys0 = se xs0
+  where
+    se xs = case unsnoc xs of
+        Just (rs, x) ->
+            f x >>= \case
+                True -> fmap (second (`snoc` x)) $ se rs
+                False -> return (xs, ys0)
+        Nothing -> return (xs, ys0)
+
+spansEndLM :: (Unsnoc xs x, Cons ys ys x x, Monad m) => (x -> m Bool) -> xs -> ys -> m (xs, ys)
+spansEndLM f = se
+  where
+    se xs ys = case unsnoc xs of
+        Just (rs, x) ->
+            f x >>= \case
+                True -> se rs (x `cons` ys)
+                False -> return (xs, ys)
+        Nothing -> return (xs, ys)
 
 mkAllSpans
 
