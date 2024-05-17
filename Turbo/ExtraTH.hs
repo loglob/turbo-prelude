@@ -9,6 +9,12 @@ infixr 0 →
 (→) :: Type -> Type -> Type
 a → b = AppT (AppT ArrowT a) b
 
+tup :: [Type] -> Type
+tup ts = foldl AppT (TupleT $ length ts) ts
+
+fun :: [Type] -> Type -> Type
+fun ts t = foldr (→) t ts
+
 mkTupleMap :: Int -> Q [Dec]
 mkTupleMap n = do
     let nm = mkName ("map" ++ show n)
@@ -16,9 +22,9 @@ mkTupleMap n = do
     xs <- mapM newName $ replicate n "x"
     let a = VarT $ mkName "a"
     let b = VarT $ mkName "b"
-    let tup t = foldl AppT (TupleT n) (replicate n t)
+    let
     return
-        [ SigD nm ((a → b) → tup a → tup b),
+        [ SigD nm ((a → b) → tup (replicate n a) → tup (replicate n b)),
           FunD
             nm
             [ Clause

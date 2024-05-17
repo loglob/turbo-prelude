@@ -2,51 +2,124 @@
 module Turbo.Internal.ConsUtils where
 
 import Turbo.Internal.Classes
+import Turbo.Internal.TH
+import Turbo.Operators
 import Turbo.RootPrelude
+
+-- * dropWhile*
+
+dropWhileIxM :: (Enum i, Uncons xs x, Monad m) => (i -> x -> m Bool) -> xs -> m xs
+{-# INLINE dropWhileIxM #-}
+dropWhileIxM f = dwi (toEnum 0)
+  where
+    dwi i xs = case uncons xs of
+        Just (y, ys) ->
+            f i y >>= \case
+                True -> dwi (succ i) ys
+                False -> return xs
+        _ -> return xs
 
 -- | Generalized `dropWhile` with an index using `Uncons`
 dropWhileIx :: (Enum i, Uncons xs x) => (i -> x -> Bool) -> xs -> xs
-dropWhileIx f = dwi (toEnum 0)
-  where
-    dwi i xs = case uncons xs of
-        Just (y, ys) | f i y -> dwi (succ i) ys
-        _ -> xs
+{-# INLINE dropWhileIx #-}
+dropWhileIx f = runIdentity . dropWhileIxM (Identity .: f)
+
+dropWhileM :: (Uncons xs x, Monad m) => (x -> m Bool) -> xs -> m xs
+{-# INLINE dropWhileM #-}
+dropWhileM = dropWhileIxM @Int . const
 
 -- | Generalized `dropWhile` using `Uncons`
 dropWhile :: (Uncons xs x) => (x -> Bool) -> xs -> xs
+{-# INLINE dropWhile #-}
 dropWhile = dropWhileIx @Int . const
+
+-- ** dropWhileEnd*
+
+dropWhileEndM :: (Unsnoc xs x, Monad m) => (x -> m Bool) -> xs -> m xs
+{-# INLINE dropWhileEndM #-}
+dropWhileEndM f xs = case unsnoc xs of
+    Nothing -> return xs
+    Just (ys, y) ->
+        f y >>= \case
+            True -> dropWhileEndM f ys
+            False -> return xs
 
 -- | Generalized `dropWhileEnd` using `Unsnoc`
 dropWhileEnd :: (Unsnoc xs x) => (x -> Bool) -> xs -> xs
-dropWhileEnd f xs = case unsnoc xs of
-    Nothing -> xs
-    Just (ys, y) -> if f y then dropWhileEnd f ys else xs
+{-# INLINE dropWhileEnd #-}
+dropWhileEnd f = runIdentity . dropWhileEndM (Identity . f)
 
--- | Generalized `takeWhile` with an index using `Cons`
-takeWhileIx :: (Enum i, Cons xs xs x x, AsEmpty xs) => (i -> x -> Bool) -> xs -> xs
-takeWhileIx f = twi (toEnum 0)
+-- * takeWhile*
+
+takeWhileIxM :: (Enum i, Uncons xs x, Cons ys ys x x, AsEmpty ys, Monad m) => (i -> x -> m Bool) -> xs -> m ys
+{-# INLINE takeWhileIxM #-}
+takeWhileIxM f = twi (toEnum 0)
   where
     twi i xs = case uncons xs of
-        Just (y, rs) | f i y -> y `cons` twi (succ i) rs
-        _ -> Empty
+        Just (y, rs) ->
+            f i y >>= \case
+                True -> fmap (cons y) $ twi (succ i) rs
+                False -> return Empty
+        _ -> return Empty
+
+-- | Generalized `takeWhile` with an index using `Cons`
+takeWhileIx :: (Enum i, Uncons xs x, Cons ys ys x x, AsEmpty ys) => (i -> x -> Bool) -> xs -> ys
+{-# INLINE takeWhileIx #-}
+takeWhileIx f = runIdentity . takeWhileIxM (Identity .: f)
+
+takeWhileM :: (Uncons xs x, Cons ys ys x x, AsEmpty ys, Monad m) => (x -> m Bool) -> xs -> m ys
+{-# INLINE takeWhileM #-}
+takeWhileM = takeWhileIxM @Int . const
 
 -- | Generalized `takeWhile` using `Cons`
-takeWhile :: (Cons xs xs x x, AsEmpty xs) => (x -> Bool) -> xs -> xs
+takeWhile :: (Uncons xs x, Cons ys ys x x, AsEmpty ys) => (x -> Bool) -> xs -> ys
+{-# INLINE takeWhile #-}
 takeWhile = takeWhileIx @Int . const
 
--- | Generalized `span` using `Cons` to construct the left part
-spanL :: (Uncons xs x, AsEmpty ys, Cons ys ys x x) => (x -> Bool) -> xs -> (ys, xs)
-spanL f xs = case uncons xs of
-    Just (x, rs) | f x -> first (cons x) $ spanL f rs
-    _ -> (Empty, xs)
+-- ** takeEndWhile*
 
--- | Generalized `span` using `Snoc` to construct the left part
-spanR :: (Uncons xs x, AsEmpty ys, Snoc ys ys x x) => (x -> Bool) -> xs -> (ys, xs)
-spanR f = s Empty
+takeEndWhileM :: (Unsnoc xs x, Snoc ys ys x x, AsEmpty ys, Monad m) => (x -> m Bool) -> xs -> m ys
+{-# INLINE takeEndWhileM #-}
+takeEndWhileM f = tew
   where
-    s ys xs = case uncons xs of
-        Just (y, rs) | f y -> s (ys `snoc` y) rs
-        _ -> (ys, xs)
+    tew xs = case unsnoc xs of
+        Just (rs, x) ->
+            f x >>= \case
+                True -> fmap (`snoc` x) $ tew rs
+                False -> return Empty
+        Nothing -> return Empty
+
+takeEndWhile :: (Unsnoc xs x, Snoc ys ys x x, AsEmpty ys) => (x -> Bool) -> xs -> ys
+{-# INLINE takeEndWhile #-}
+takeEndWhile f = runIdentity . takeEndWhileM (Identity . f)
+
+-- * span*
+
+-- ** With index, with pre-/suffix, inside monad
+
+spansIxLM :: (Enum i, Uncons xs x, Cons ys ys x x, Monad m) => (i -> x -> m Bool) -> xs -> ys -> m (ys, xs)
+spansIxLM f xs0 ys0 = si (toEnum 0) xs0
+  where
+    si i xs = case uncons xs of
+        Just (x, rs) ->
+            f i x >>= \case
+                True -> fmap (first (cons x)) $ si (succ i) rs
+                False -> return (ys0, xs)
+        Nothing -> return (ys0, xs)
+
+spansIxRM :: (Enum i, Uncons xs x, Snoc ys ys x x, Monad m) => (i -> x -> m Bool) -> xs -> ys -> m (ys, xs)
+spansIxRM f = si (toEnum 0)
+  where
+    si i xs ys = case uncons xs of
+        Just (x, rs) ->
+            f i x >>= \case
+                True -> si (succ i) rs (ys `snoc` x)
+                False -> return (ys, xs)
+        Nothing -> return (ys, xs)
+
+mkAllSpans
+
+-- * finding indices
 
 findIndices :: (Enum i, Uncons xs x) => (x -> Bool) -> xs -> [i]
 findIndices f = fi (toEnum 0)
@@ -60,11 +133,15 @@ findIndex f xs = case findIndices f xs of
     [] -> Nothing
     (i : _) -> Just i
 
+-- * repeat
+
 repeatL :: (Cons xs xs x x) => x -> xs
 repeatL x = x `cons` repeatL x
 
 repeatR :: (Snoc xs xs x x) => x -> xs
 repeatR x = repeatR x `snoc` x
+
+-- * replicate
 
 replicateL :: (Enum i, AsEmpty xs, Cons xs xs x x) => i -> x -> xs
 replicateL n _ | fromEnum n <= 0 = Empty
@@ -73,6 +150,8 @@ replicateL n x = x `cons` replicateL (pred n) x
 replicateR :: (Enum i, AsEmpty xs, Snoc xs xs x x) => i -> x -> xs
 replicateR n _ | fromEnum n <= 0 = Empty
 replicateR n x = replicateR (pred n) x `snoc` x
+
+-- * showList__ variants
 
 -- | Shows a list with functions for elements and for intercalating, via left-reduction
 showsListL :: (Uncons xs x) => (x -> ShowS) -> ShowS -> xs -> ShowS
