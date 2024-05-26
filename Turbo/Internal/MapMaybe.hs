@@ -67,3 +67,7 @@ mapsMaybeRLM f = m
             m rs (y ?:< ys)
 
 mkAllMaps
+
+-- | mapMaybeLM constrained to lists
+mapMaybeM :: (Monad m) => (a -> m (Maybe b)) -> [a] -> m [b]
+mapMaybeM = mapMaybeLM
