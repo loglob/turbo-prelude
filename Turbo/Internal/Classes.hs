@@ -51,7 +51,7 @@ instance {-# OVERLAPPABLE #-} (Ixed m) => AtConst m where
 -- * AtConstRev
 
 -- | A reversed variant of `AtConst`
-class AtConstRev xs x where
+class AtConstRev xs x | xs -> x where
     -- | Variant of `@` that indexes from the right, with the last element at `0`
     (@~) :: xs -> Int -> Maybe x
 
