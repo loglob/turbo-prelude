@@ -13,6 +13,16 @@ import Turbo.Prelude
 class ISpan s where
     -- | A span of the entire array the input span slices
     baseSpan :: s -> s
+    baseSpan = fst . baseSpanOff
+
+    -- | Like `baseSpan` but also returns the starting offset of the input span
+    baseSpanOff :: s -> (s, Int)
+    baseSpanOff x =
+        let
+            b = baseSpan x
+            o = x `isSliceOf` b
+         in
+            (b, o ?! error "Span violated slice law")
 
     -- | Computes the smallest span that contains both input spans
     --   Returns `Nothing` if they are part of different base spans
@@ -62,7 +72,7 @@ class ISpan s where
                 then error "trims indices out of range"
                 else slice l (size s - l - r) s
 
-    {-# MINIMAL (baseSpan, extends, bounds, isSliceOf, size, overlap, ptrCmp, (slice | (trims, takes))) #-}
+    {-# MINIMAL ((baseSpan | baseSpanOff), extends, bounds, isSliceOf, size, overlap, ptrCmp, (slice | (trims, takes))) #-}
 
 -- | `compare` on unlifted `Int#`
 cmp# :: Int# -> Int# -> Ordering

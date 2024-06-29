@@ -20,12 +20,20 @@ measureOff' n t = case T.measureOff n t of
 
 -- | Instance for Text indexed in chars
 instance ISpan Text where
-    baseSpan :: Text -> Text
-    baseSpan (Text (ByteArray xs) _ _) = Text (ByteArray xs) 0 (I# (sizeofByteArray# xs))
+    baseSpanOff :: Text -> (Text, Int)
+    baseSpanOff (Text (ByteArray xs) byteOff _) =
+        let
+            bArr = ByteArray xs
+            base = Text bArr 0 (I# (sizeofByteArray# xs))
+            charOff = T.length (Text bArr 0 byteOff)
+         in
+            (base, charOff)
+
     bounds :: Text -> Text -> Maybe Text
     bounds (Text (ByteArray xs) (I# o) (I# n)) (Text (ByteArray ys) (I# p) (I# m)) = case unsafePtrEquality# xs ys of
         1# -> let !(# q, k #) = _bounds o n p m in Just $ Text (ByteArray xs) (I# q) (I# k)
         _ -> Nothing
+
     extends :: Int -> Int -> Text -> Text
     extends n m (Text xs o l) = ext
       where
@@ -54,8 +62,10 @@ instance ISpan Text where
     isSliceOf (Text (ByteArray xs) o n) (Text (ByteArray ys) p m) = case unsafePtrEquality# xs ys of
         1# | o >= p && o + n <= p + m -> Just (T.length (Text (ByteArray xs) p (o - p)))
         _ -> Nothing
+
     size :: Text -> Int
     size = T.length
+
     overlap :: Text -> Text -> Maybe Text
     overlap (Text (ByteArray xs) o n) (Text (ByteArray ys) p m) = case unsafePtrEquality# xs ys of
         1# ->
@@ -65,10 +75,12 @@ instance ISpan Text where
                     then Just (Text (ByteArray xs) oR (hR - oR))
                     else Nothing
         _ -> Nothing
+
     ptrCmp :: Text -> Text -> Maybe Ordering
     ptrCmp (Text (ByteArray xs) o _) (Text (ByteArray ys) p _) = case unsafePtrEquality# xs ys of
         1# -> Just (compare o p)
         _ -> Nothing
+
     slice :: Int -> Int -> Text -> Text
     slice o n t@(Text arr p l) = case measureOff' o t of
         Nothing -> error "slice index out of range"

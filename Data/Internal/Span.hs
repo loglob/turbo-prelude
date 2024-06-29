@@ -39,8 +39,8 @@ baseSpan# (# | a #) = fromSArray# a
 data Span (a :: TYPE (BoxedRep l)) = Span Int# Int# (GenArray# a)
 
 instance ISpan (Span a) where
-    baseSpan :: Span a -> Span a
-    baseSpan (Span _ _ xs) = baseSpan# xs
+    baseSpanOff :: Span a -> (Span a, Int)
+    baseSpanOff (Span o _ xs) = (baseSpan# xs, I# o)
 
     extends :: Int -> Int -> Span a -> Span a
     extends (I# l) (I# r) (Span o n xs) = slice (I# (o -# l)) (I# (n +# r)) (baseSpan# xs)

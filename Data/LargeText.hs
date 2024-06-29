@@ -254,11 +254,12 @@ getLine txt ln =
             Just j -> slice i (j - i) txt
 
 instance ISpan LargeText where
-    baseSpan :: LargeText -> LargeText
-    baseSpan txt@(LargeText bs ms _ _) =
+    baseSpanOff :: LargeText -> (LargeText, Int)
+    baseSpanOff txt@(LargeText bs ms o _) =
         let mC = sizeofSmallArray# ms
             !(I# z) = T.length $ finalChunk txt
-         in LargeText bs ms 0# ((512# *# mC) +# z)
+            b = LargeText bs ms 0# ((512# *# mC) +# z)
+         in (b, I# o)
 
     bounds :: LargeText -> LargeText -> Maybe LargeText
     bounds a b =

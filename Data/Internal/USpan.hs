@@ -24,32 +24,39 @@ capacity p bs = sizeofByteArray# bs `divInt#` sizeOfType# p
 
 -- looks almost exactly like the one for Span, but just different enough to not be generalizable further
 instance ISpan (USpan a) where
-    baseSpan :: USpan a -> USpan a
-    baseSpan (USpan _ _ arr) = fromBytes# arr
+    baseSpanOff :: USpan a -> (USpan a, Int)
+    baseSpanOff (USpan o _ arr) = (fromBytes# arr, I# o)
+
     bounds :: USpan a -> USpan a -> Maybe (USpan a)
     bounds (USpan o n xs) (USpan p m ys) = case unsafePtrEquality# xs ys of
         1# -> let !(# q, k #) = _bounds o n p m in Just $ USpan q k xs
         _ -> Nothing
+
     extends :: Int -> Int -> USpan a -> USpan a
     extends (I# n) (I# m) (USpan o l arr) = case _extends n m o l (capacity (Proxy :: Proxy a) arr) of
         (# -1#, _ #) -> error "extends indices out of range"
         (# o', l' #) -> USpan o' l' arr
+
     isSliceOf :: USpan a -> USpan a -> Maybe Int
     isSliceOf (USpan o n xs) (USpan p m ys) = case unsafePtrEquality# xs ys of
         1# -> _isSliceOf o n p m
         _ -> Nothing
+
     size :: USpan a -> Int
     size (USpan _ n _) = I# n
+
     overlap :: USpan a -> USpan a -> Maybe (USpan a)
     overlap (USpan o n xs) (USpan p m ys) = case unsafePtrEquality# xs ys of
         1# -> case _overlap o n p m of
             (# -1#, _ #) -> Nothing
             (# oR, lR #) -> Just (USpan oR lR xs)
         _ -> Nothing
+
     ptrCmp :: USpan a -> USpan a -> Maybe Ordering
     ptrCmp (USpan o _ xs) (USpan p _ ys) = case unsafePtrEquality# xs ys of
         1# -> Just (cmp# o p)
         _ -> Nothing
+
     slice :: Int -> Int -> USpan a -> USpan a
     slice (I# d) (I# n) (USpan o l xs) = case _slice d n o l of
         -1# -> error "slice index out of range"
