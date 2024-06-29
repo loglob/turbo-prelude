@@ -9,7 +9,7 @@ import Turbo.RootPrelude
 -- * uncons
 
 -- | A read-only variant of `Cons`
-class Uncons t a where
+class Uncons t a | t -> a where
     uncons :: t -> Maybe (a, t)
 
 -- | `Uncons` is a subclass of `Simple Cons`
@@ -24,7 +24,7 @@ pattern (:<) x xs <- (uncons -> Just (x, xs))
 -- * unsnoc
 
 -- | A read-only variant of `Snoc`
-class Unsnoc t a where
+class Unsnoc t a | t -> a where
     unsnoc :: t -> Maybe (t, a)
 
 -- | `Unsnoc` is a subclass of `Simple Snoc`
