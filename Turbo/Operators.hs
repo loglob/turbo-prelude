@@ -226,6 +226,31 @@ a ^| _ = a
 (<|^>) = (A.*>)
 (<^|>) = (A.<*)
 
+-- ** type-fixed picking operators
+infixr 4 ^|~, ^|~>, <^|~>
+infixl 4 ~|^, <~|^, <~|^>
+
+(^|~) :: a -> () -> a
+(^|~>) :: (Functor f) => a -> f () -> f a
+(<^|~>) :: (Applicative f) => f a -> f () -> f a
+(~|^) :: () -> a -> a
+(<~|^) :: (Functor f) => f () -> a -> f a
+(<~|^>) :: (Applicative f) => f () -> f a -> f a
+{-# INLINE (^|~) #-}
+{-# INLINE (~|^) #-}
+{-# INLINE (^|~>) #-}
+{-# INLINE (<~|^) #-}
+{-# INLINE (<^|~>) #-}
+{-# INLINE (<~|^>) #-}
+
+(^|~) = (^|)
+(^|~>) = (^|>)
+(<^|~>) = (<^|>)
+
+(~|^) = (|^)
+(<~|^) = (<|^)
+(<~|^>) = (<|^>)
+
 -- * ~-family of reversed composition
 infixl 9 ~
 
