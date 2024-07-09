@@ -275,9 +275,14 @@ fromText = \t -> runST (ST (f t))
   where
     f :: Text -> State# s -> (# State# s, LargeText #)
     f txt@(Text (ByteArray bs) _ _) s0 =
-        let !(# s1, arr #) = newSmallArray# 8# (undefined :: Marker) s0
-            !(# s2, cc, ms #) = initMarkers 8# arr 0# txt s1
-         in (# s2, LargeText bs ms 0# cc #)
+        let
+            -- allocate once, trim array later
+            maxMarkers = sizeofByteArray# bs `divInt#` 512#
+            !(# s1, arr #) = newSmallArray# maxMarkers (undefined :: Marker) s0
+            !(# s2, cc, ms #) = initMarkers arr 0# txt s1
+         in
+            (# s2, LargeText bs ms 0# cc #)
+    -- consumes the next 512 characters (or until EOF) and returns the marker to use, or the number of characters in the input
     advanceMarker :: Marker -> Text -> Either Int (Marker, Text)
     advanceMarker m0 t0 = adv 0# m0 t0
       where
@@ -290,28 +295,22 @@ fromText = \t -> runST (ST (f t))
                     Nothing -> Left (I# n)
                     Just '\n' -> adv (inc# n) (m{line = inc# (line m), col = 1#, byteOffset = l +# byteOffset m}) t'
                     Just _ -> adv (inc# n) (m{col = inc# (col m), byteOffset = l +# byteOffset m}) t'
-    -- \| creates the markers array.
-    -- \$1: current capacity of $2
-    -- \$2: current array
-    -- \$3: current number of markers
-    -- \$4: current text suffix
-    -- \$5: state thread
-    initMarkers :: Int# -> SmallMutableArray# s Marker -> Int# -> Text -> State# s -> (# State# s, Int#, SmallArray# Marker #)
-    initMarkers c arr n txt s
-        | n `geq#` c =
-            let c' = c *# 2#
-                !(# s', arr' #) = resizeSmallMutableArray# arr c' undefined s
-             in initMarkers c' arr' n txt s'
-        | otherwise =
-            let !(# s1, m #) = if n `eq#` 0# then (# s, zeroMarker #) else readSmallArray# arr (n -# 1#) s
-             in case advanceMarker m txt of
-                    Left (I# o) ->
-                        let s2 = shrinkSmallMutableArray# arr n s1
-                            !(# s3, arr' #) = unsafeFreezeSmallArray# arr s2
-                         in (# s3, o +# 512# *# n, arr' #)
-                    Right (!m', !t') ->
-                        let s2 = writeSmallArray# arr n m' s1
-                         in initMarkers c arr (inc# n) t' s2
+    -- creates the markers array.
+    -- \* current array
+    -- \* current number of markers
+    -- \* current text suffix
+    -- \* state thread
+    initMarkers :: SmallMutableArray# s Marker -> Int# -> Text -> State# s -> (# State# s, Int#, SmallArray# Marker #)
+    initMarkers arr n txt s =
+        let !(# s1, m #) = if n `eq#` 0# then (# s, zeroMarker #) else readSmallArray# arr (n -# 1#) s
+         in case advanceMarker m txt of
+                Left (I# o) ->
+                    let s2 = shrinkSmallMutableArray# arr n s1
+                        !(# s3, arr' #) = unsafeFreezeSmallArray# arr s2
+                     in (# s3, o +# 512# *# n, arr' #)
+                Right (!m', !t') ->
+                    let s2 = writeSmallArray# arr n m' s1
+                     in initMarkers arr (inc# n) t' s2
 
 -- | Converts large text into normal text. O(1), doesn't copy.
 toText :: LargeText -> Text
