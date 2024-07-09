@@ -100,14 +100,9 @@ chunkOfChar txt c =
 inBounds :: LargeText -> Int# -> Bool
 inBounds txt c = c `geq#` 0# && c `lt#` charCount txt
 
-incrPos :: Int# -> Int# -> Char -> (# Int#, Int# #)
-incrPos l _ '\n' = (# inc# l, 1# #)
-incrPos l r _ = (# l, inc# r #)
-
--- | Computes the position after processing some characters
-computePos :: Int# -> Int# -> [Char] -> (# Int#, Int# #)
-computePos l r [] = (# l, r #)
-computePos l r (c : cs) = let !(# x, y #) = incrPos l r c in computePos x y cs
+incrPos :: Position -> Char -> Position
+incrPos (Position l _) '\n' = Position (succ l) 1
+incrPos (Position l c) _ = Position l (succ c)
 
 finalChunk :: LargeText -> Text
 finalChunk txt =
@@ -155,8 +150,8 @@ indexPos txt (I# i) =
         then
             let !(# d, ch, m #) = chunkOfChar txt i
                 (l, r) = T.splitAt (I# d) ch
-                !(# ln, cn #) = computePos (line m) (col m) (T.unpack l)
-             in Just (T.head r, Position (I# ln) (I# cn))
+                p' = T.foldl incrPos (markerPos m) l
+             in Just (T.head r, p')
         else
             Nothing
 
@@ -166,46 +161,35 @@ unconsPos t@(LargeText bs ms o l) = indexPos t 1 <.& LargeText bs ms (inc# o) (l
 
 -- ** Positions interface
 
-{- | Determines the 1-based file position of a character by its index.
- O(1)
--}
+-- | Determines the 1-based file position of a character by its index. O(1)
 posOfChar :: LargeText -> Int -> Maybe Position
-posOfChar txt (I# i) =
-    if inBounds txt i
-        then
-            let !(# d, ch, m #) = chunkOfChar txt i
-                !(# r, l #) = computePos (line m) (col m) (take (I# d) (unpack ch))
-             in Just (Position (I# r) (I# l))
-        else
-            Nothing
+posOfChar = fmap snd .: indexPos
 
--- | Searches for the character index of a position, if it exists. O(log n)
-charAtPos :: LargeText -> Position -> Maybe Int
+-- | Searches for the character at a position and its index, if it exists. O(log n)
+charAtPos :: LargeText -> Position -> Maybe (Char, Int)
 charAtPos tx p = case seekMarker tx p of
     (# -1#, _ #) -> Nothing
     (# i, m #) ->
         case seekPos tx p m of
-            -1# -> Nothing
+            (# _, -1# #) -> Nothing
             -- possible optimization: perform bounds checking earlier on the results of seekMarker and seekPos
-            j ->
+            (# c, j #) ->
                 let charIndex = i *# 512# +# j -# charOffset tx
-                 in if inBounds tx charIndex then Just (I# charIndex) else Nothing
+                 in if inBounds tx charIndex then Just (c, I# charIndex) else Nothing
   where
-    -- Searches a position within a chunk, if it exists. Returns character offset within chunk.
-    seekPos :: LargeText -> Position -> Marker -> Int#
-    seekPos txt (Position (I# lW) (I# cW)) (Marker b l0 c0) = f l0 c0 0# (chunkFromByte txt b)
+    -- Searches a position within a chunk, if it exists. Returns (Char, char index within chunk).
+    seekPos :: LargeText -> Position -> Marker -> (# Char, Int# #)
+    seekPos txt pW m = f (markerPos m) 0# (chunkFromByte txt (byteOffset m))
       where
-        pCmp :: Int# -> Int# -> Ordering
-        pCmp l c = case cmp# l lW of
-            EQ -> cmp# c cW
-            x -> x
-        f :: Int# -> Int# -> Int# -> Text -> Int#
-        f l c n txt = case pCmp l c of
-            GT -> -1#
-            EQ -> n
+        f :: Position -> Int# -> Text -> (# Char, Int# #)
+        f p n txt = case p `compare` pW of
+            GT -> (# undefined, -1# #)
+            EQ -> case txt @ 0 of
+                Nothing -> (# undefined, -1# #)
+                Just c -> (# c, n #)
             LT -> case T.uncons txt of
-                Nothing -> -1#
-                Just (x, t') -> let !(# l', c' #) = incrPos l c x in f l' c' (inc# n) t'
+                Nothing -> (# undefined, -1# #)
+                Just (c, t') -> f (incrPos p c) (inc# n) t'
 
     -- Seeks the last marker before a position. Indexes like `marker`.
     seekMarker :: LargeText -> Position -> (# Int#, Marker #)
@@ -225,11 +209,11 @@ charAtPos tx p = case seekMarker tx p of
 -}
 getLine :: LargeText -> Int -> Maybe LargeText
 getLine txt ln =
-    charAtPos txt (Position ln 1) <§ \i ->
+    charAtPos txt (Position ln 1) <§ \(_, i) ->
         case charAtPos txt (Position (ln + 1) 1) of
             -- possible improvement: reuse offsets computed during the first charAtPos
             Nothing -> slice i (size txt - i) txt
-            Just j -> slice i (j - i) txt
+            Just (_, j) -> slice i (j - i) txt
 
 instance ISpan LargeText where
     baseSpanOff :: LargeText -> (LargeText, Int)
@@ -304,8 +288,8 @@ fromText = \t -> runST (ST (f t))
             let !(Text _ _ (I# l), t') = T.splitAt 1 t
              in case t @ 0 of
                     Nothing -> Left (I# n)
-                    Just '\n' -> adv (inc# n) (m{line = 1# +# line m, col = 1#, byteOffset = l +# byteOffset m}) t'
-                    Just _ -> adv (inc# n) (m{col = 1# +# col m, byteOffset = l +# byteOffset m}) t'
+                    Just '\n' -> adv (inc# n) (m{line = inc# (line m), col = 1#, byteOffset = l +# byteOffset m}) t'
+                    Just _ -> adv (inc# n) (m{col = inc# (col m), byteOffset = l +# byteOffset m}) t'
     -- \| creates the markers array.
     -- \$1: current capacity of $2
     -- \$2: current array
