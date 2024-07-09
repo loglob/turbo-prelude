@@ -2,13 +2,12 @@
 
 module Turbo.Extra where
 
-import Control.Lens qualified as L
 import Data.Foldable qualified as F
 import Data.Functor qualified as Fu
 import Data.List qualified as Ls
 import Data.Text qualified as T
 import Turbo.ExtraTH
-import Turbo.Operators ((<++>), (<:|), (>:|>))
+import Turbo.Operators
 import Turbo.RootPrelude
 
 -- * Misc functions
