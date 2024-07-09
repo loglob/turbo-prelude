@@ -8,6 +8,7 @@ import Data.Text.Internal (Text (..))
 import GHC.Err (error, undefined)
 import GHC.Exts
 import Turbo.Internal.Classes
+import Turbo.Internal.Search
 import Turbo.Prelude
 
 -- * Type definitions
@@ -34,9 +35,9 @@ data Position = Position
     { -- | The 1-based line number of this input position.
       --  Incremented after newlines, so that the terminating newline
       --  is still part of the line it ends.
-      lineNum :: Int,
+      lineNum :: !Int,
       -- | The 1-based column number of this input position.
-      columnNum :: Int
+      columnNum :: !Int
     }
     deriving (Eq, Ord)
 
@@ -70,6 +71,7 @@ zeroMarker = Marker 0# 1# 1#
 chunkFromByte :: LargeText -> Int# -> Text
 chunkFromByte txt o = let bs = bytes txt in Text (ByteArray bs) (I# o) (I# (sizeofByteArray# bs -# o))
 
+-- | Indexes a marker array. Implements the special handling of index 0.
 marker' :: SmallArray# Marker -> Int# -> Marker
 marker' ms m = case m of
     0# -> zeroMarker
@@ -78,6 +80,9 @@ marker' ms m = case m of
 -- | indexes the marker array, or returns a zeroMarker. Index must be <= marker count.
 marker :: LargeText -> Int# -> Marker
 marker txt i = marker' (markers txt) i
+
+markerPos :: Marker -> Position
+markerPos (Marker _ l c) = Position (I# l) (I# c)
 
 {- | Gets the chunk containing a character index. Returns:
  * The index of the character inside the chunk
@@ -91,15 +96,18 @@ chunkOfChar txt c =
         mk = marker txt m
      in (# o, chunkFromByte txt (byteOffset mk), mk #)
 
--- | Checks if a character index is in bounds
+-- | Checks if a relative character index is in bounds
 inBounds :: LargeText -> Int# -> Bool
 inBounds txt c = c `geq#` 0# && c `lt#` charCount txt
+
+incrPos :: Int# -> Int# -> Char -> (# Int#, Int# #)
+incrPos l _ '\n' = (# inc# l, 1# #)
+incrPos l r _ = (# l, inc# r #)
 
 -- | Computes the position after processing some characters
 computePos :: Int# -> Int# -> [Char] -> (# Int#, Int# #)
 computePos l r [] = (# l, r #)
-computePos l _ ('\n' : cs) = computePos (inc# l) 1# cs
-computePos l r (_ : cs) = computePos l (inc# r) cs
+computePos l r (c : cs) = let !(# x, y #) = incrPos l r c in computePos x y cs
 
 finalChunk :: LargeText -> Text
 finalChunk txt =
@@ -175,14 +183,15 @@ posOfChar txt (I# i) =
 charAtPos :: LargeText -> Position -> Maybe Int
 charAtPos tx p = case seekMarker tx p of
     (# -1#, _ #) -> Nothing
-    (# i, m #) -> case seekPos tx p m of
-        -1# -> Nothing
-        -- possible optimization: perform bounds checking earlier on the results of seekMarker and seekPos
-        j ->
-            let k = i *# 512# +# j -# charOffset tx
-             in if inBounds tx k then Just (I# k) else Nothing
+    (# i, m #) ->
+        case seekPos tx p m of
+            -1# -> Nothing
+            -- possible optimization: perform bounds checking earlier on the results of seekMarker and seekPos
+            j ->
+                let charIndex = i *# 512# +# j -# charOffset tx
+                 in if inBounds tx charIndex then Just (I# charIndex) else Nothing
   where
-    -- \| Searches a position within a chunk, if it exists. Returns character offset within chunk.
+    -- Searches a position within a chunk, if it exists. Returns character offset within chunk.
     seekPos :: LargeText -> Position -> Marker -> Int#
     seekPos txt (Position (I# lW) (I# cW)) (Marker b l0 c0) = f l0 c0 0# (chunkFromByte txt b)
       where
@@ -196,50 +205,19 @@ charAtPos tx p = case seekMarker tx p of
             EQ -> n
             LT -> case T.uncons txt of
                 Nothing -> -1#
-                Just ('\n', t') -> f (inc# l) 1# (inc# n) t'
-                Just (_, t') -> f l (inc# c) (inc# n) t'
+                Just (x, t') -> let !(# l', c' #) = incrPos l c x in f l' c' (inc# n) t'
 
-    -- \| Seeks the last marker before a position. Indexes like `marker`.
+    -- Seeks the last marker before a position. Indexes like `marker`.
     seekMarker :: LargeText -> Position -> (# Int#, Marker #)
-    seekMarker txt (Position (I# ln) (I# co)) =
+    seekMarker txt pos =
         let !(# lo, hi #) = markerRange txt
-         in case binSeekSArr# (markers txt) before lo hi of
-                (# -1#, _ #) ->
-                    if before zeroMarker
-                        then (# 0#, zeroMarker #)
-                        else (# -1#, undefined #)
-                (# i, x #) -> (# inc# i, x #)
+         in case binSeekFalse ((> pos) . markerPos) (\(I# i) -> marker txt i) (I# lo) (I# hi) of
+                Nothing -> (# -1#, undefined #)
+                Just (I# i, x) -> (# i, x #)
       where
-        -- \| Returns the range of markers addressed by a large text span
+        -- Returns the range of markers addressed by a LargeText span. Indexes like `marker`. Lower bound is inclusive, upper is exclusive.
         markerRange :: LargeText -> (# Int#, Int# #)
         markerRange (LargeText _ _ o l) = (# o `divInt#` 512#, inc# ((o +# l) `divInt#` 512#) #)
-        -- \| Binary-searches a monotonous predicate.
-        --   Returns `-1#` if the entire array is false.
-        --   Accepts (included, excluded) bounds, assumed to be >= 0.
-        binSeek# :: (Int# -> Bool) -> Int# -> Int# -> Int#
-        binSeek# f = seek
-          where
-            seek :: Int# -> Int# -> Int#
-            seek l h =
-                if l `geq#` h
-                    then
-                        if f l
-                            then l
-                            else -1#
-                    else
-                        let m = l +# ((h -# l +# 1#) `divInt#` 2#)
-                         in if f m
-                                then seek m h
-                                else seek l (m -# 1#)
-        binSeekSArr# :: SmallArray# a -> (a -> Bool) -> Int# -> Int# -> (# Int#, a #)
-        binSeekSArr# arr f l h = case binSeek# (\i -> let (# x #) = indexSmallArray# arr i in f x) l h of
-            -1# -> (# -1#, undefined #)
-            j -> let (# y #) = indexSmallArray# arr j in (# j, y #)
-        before :: Marker -> Bool
-        before (Marker _ l c) = case cmp# l ln of
-            LT -> True
-            EQ -> c `leq#` co
-            GT -> False
 
 {- | Gets a line by its 1-based index, if such a line exists.
  Contains the terminating newline, if there is one.
