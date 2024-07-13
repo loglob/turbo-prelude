@@ -5,7 +5,7 @@ module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators
 import Data.Char (isUpper)
 import GHC.Err (error)
 import Language.Haskell.TH
-import Turbo.ExtraTH ((→))
+import Turbo.Extra.TH ((→))
 import Turbo.RootPrelude
 
 -- | The context placed on a type signature

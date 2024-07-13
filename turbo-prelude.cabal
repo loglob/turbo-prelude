@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.6.0.1
+version:            1.6.0.2
 
 synopsis: Alternate prelude and extra library
 
@@ -38,7 +38,11 @@ library
         Data.Internal.USpan
         Data.Internal.VectorSpan
         Turbo.Extra
-        Turbo.ExtraTH
+        Turbo.Extra.Fork
+        Turbo.Extra.List
+        Turbo.Extra.Misc
+        Turbo.Extra.Monad
+        Turbo.Extra.TH
         Turbo.Internal.Classes
         Turbo.Internal.ConsUtils
         Turbo.Internal.MapMaybe

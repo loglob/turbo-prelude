@@ -1,6 +1,6 @@
 module Turbo.Internal.TH where
 
-import Turbo.ExtraTH
+import Turbo.Extra.TH
 
 import Language.Haskell.TH
 import Turbo.Internal.Classes

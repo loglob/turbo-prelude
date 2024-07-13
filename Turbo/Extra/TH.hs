@@ -1,4 +1,4 @@
-module Turbo.ExtraTH where
+module Turbo.Extra.TH where
 
 import Language.Haskell.TH
 import Turbo.RootPrelude
