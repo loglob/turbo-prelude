@@ -80,7 +80,10 @@ concat :: (FoldableR xs [x]) => xs -> [x]
 concat = foldr (++) []
 
 find :: (FoldableR xs x) => (x -> Bool) -> xs -> Maybe x
-find p = getFirst . foldMap (\x -> First (if p x then Just x else Nothing))
+find p = findJust (\x -> if p x then Just x else Nothing)
+
+findJust :: (FoldableR xs x) => (x -> Maybe y) -> xs -> Maybe y
+findJust f = getFirst . foldMap (\x -> First (f x))
 
 foldlM :: (FoldableR xs x, Monad m) => (y -> x -> m y) -> y -> xs -> m y
 foldlM f y0 xs = foldr (\x g y -> f y x >>= g) return xs y0
