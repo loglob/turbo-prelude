@@ -2,6 +2,7 @@ module Turbo.Extra.TH where
 
 import Language.Haskell.TH
 import Turbo.RootPrelude
+import Data.Foldable
 
 infixr 0 →
 

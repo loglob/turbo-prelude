@@ -1,6 +1,7 @@
 module Data.RList where
 
 import Control.Lens
+import Data.Foldable qualified
 import GHC.IsList as L
 import Turbo.Prelude
 

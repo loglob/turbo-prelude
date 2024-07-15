@@ -9,3 +9,4 @@ import Turbo.Internal.MapMaybe as I hiding ((?:<), (?:>))
 import Turbo.Internal.Search as I
 import Turbo.Operators as O
 import Turbo.RootPrelude as Root
+import Data.FoldableR as Root

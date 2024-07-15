@@ -9,7 +9,8 @@ import GHC.Err (error, undefined)
 import GHC.Exts
 import Turbo.Internal.Classes
 import Turbo.Internal.Search
-import Turbo.Prelude
+import Turbo.Operators
+import Turbo.RootPrelude
 
 -- * Type definitions
 

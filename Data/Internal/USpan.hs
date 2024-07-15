@@ -9,6 +9,7 @@ import Data.Primitive
 import GHC.Base
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
+import Data.Foldable qualified
 
 {- | Segment of a byte array.
  Offers more compact and efficient representation, but doesn't support laziness.

@@ -1,6 +1,7 @@
 module Turbo.Extra.Misc where
 import Turbo.RootPrelude
 import Turbo.Extra.TH
+import Data.Foldable
 import Data.Text qualified as T
 import qualified Data.Foldable as F
 

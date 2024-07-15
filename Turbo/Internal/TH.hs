@@ -1,8 +1,8 @@
 module Turbo.Internal.TH where
 
-import Turbo.Extra.TH
-
+import Data.Foldable
 import Language.Haskell.TH
+import Turbo.Extra.TH
 import Turbo.Internal.Classes
 import Turbo.Operators
 import Turbo.RootPrelude

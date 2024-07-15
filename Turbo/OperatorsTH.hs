@@ -3,6 +3,7 @@
 module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst, makeTuplePaste) where
 
 import Data.Char (isUpper)
+import Data.Foldable
 import GHC.Err (error)
 import Language.Haskell.TH
 import Turbo.Extra.TH ((→))

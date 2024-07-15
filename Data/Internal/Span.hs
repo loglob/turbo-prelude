@@ -13,6 +13,7 @@ import GHC.Exts (RuntimeRep (..), TYPE)
 import GHC.ST
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
+import Data.Foldable qualified
 
 {- | Permit either small or regular arrays
 Differences should be negligible because they are immutable

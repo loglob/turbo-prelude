@@ -91,38 +91,7 @@ import Data.Bool as Exp (Bool (..), bool, not, otherwise, (&&), (||))
 import Data.Char as Exp (Char, chr, ord)
 import Data.Either as Exp (Either (..), either, lefts, partitionEithers, rights)
 import Data.Eq as Exp (Eq (..))
-import Data.Foldable as Exp (
-    Foldable (
-        elem,
-        fold,
-        foldMap,
-        foldMap',
-        foldl,
-        foldl',
-        foldr,
-        foldr',
-        length,
-        null,
-        product,
-        sum,
-        toList
-    ),
-    all,
-    any,
-    asum,
-    concat,
-    concatMap,
-    find,
-    foldlM,
-    foldrM,
-    forM_,
-    for_,
-    mapM_,
-    msum,
-    notElem,
-    sequenceA_,
-    traverse_,
- )
+import Data.Foldable as Exp (Foldable ())
 import Data.Foldable1 as Exp (
     Foldable1 (
         fold1,
@@ -271,6 +240,7 @@ import GHC.Base as Exp (
     getSizeofMutableByteArray#,
     getSizeofSmallMutableArray#,
     isTrue#,
+    seq,
     sizeofArray#,
     sizeofByteArray#,
     sizeofMutableArray#,

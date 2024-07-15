@@ -5,6 +5,7 @@ import Data.Map qualified as M
 import Data.Set qualified as S
 import Turbo.Operators
 import Turbo.RootPrelude
+import Data.List.NonEmpty (toList)
 
 -- | Lens for the head of a NonEmpty
 _head1 :: Lens' (NonEmpty a) a
