@@ -1,4 +1,5 @@
 {-# OPTIONS_HADDOCK hide #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | The prelude sans anything defined in this package
 module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take, maximum1, minimum1, maximumBy1, minimumBy1) where
@@ -415,3 +416,6 @@ maximumBy1 = F1.maximumBy
 
 minimumBy1 :: (Foldable1 f) => (a -> a -> Ordering) -> f a -> a
 minimumBy1 = F1.minimumBy
+
+instance IsString ShowS where
+    fromString = (++)
