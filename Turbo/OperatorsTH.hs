@@ -1,6 +1,6 @@
 {-# OPTIONS_HADDOCK hide #-}
 
-module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst, makeTuplePaste) where
+module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst, makeTuplePaste, makeCoincideSubst) where
 
 import Data.Char (isUpper)
 import Data.Foldable
@@ -267,3 +267,36 @@ tuplePaste n m = do
 
 makeTuplePaste :: Word -> Q [Dec]
 makeTuplePaste n = fmap concat $ forM (unSum n) (uncurry tuplePaste)
+
+-- | Generates a `°´`-operator for combining an arity ($1+$2+1) function
+--   with a ($1+1) function that returns ($2+1) values, where types match position-wise
+coincideSubst :: Word -> Word -> Q [Dec]
+coincideSubst n m = do
+    let nm = mkName $ dotPrefix n ++ "°" ++ dotSuffix m ++ "´"
+    let f1 = mkName "f1"
+    let f2 = mkName "f2"
+    let r = mkName "r"
+    -- arguments that f1 and f2 have in common
+    xs <- newNames (1 + n) "x"
+    -- arguments that only f1 accepts and f2 returns
+    ys <- newNames (1 + m) "y"
+    let t1 = funT' (xs ++ ys) r
+    let t2 = funT (map VarT xs) (tupT' ys)
+    let t3 = funT' xs r 
+    let o = (nm, [], t1, t2, t3)
+    l <- leftWrapper o
+    r <- rightWrapper o
+    a <- applicativeWrapper o
+    return $ [
+        InfixD (Fixity 9 InfixR) nm,
+        SigD nm (t1 → t2 → t3),
+        mkInline nm,
+        FunD nm [
+            Clause (VarP f1 : VarP f2 : (map VarP xs)) (NormalB $ LetE [
+                ValD (tupP' ys) (NormalB $ app' f2 xs) []
+             ] (app' f1 (xs ++ ys))) []
+        ]
+     ] ++ l ++ r ++ a
+
+makeCoincideSubst :: Word -> Q [Dec]
+makeCoincideSubst n = fmap concat $ forM (unSum n) (uncurry coincideSubst)

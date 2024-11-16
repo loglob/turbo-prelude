@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.6.4.0
+version:            1.6.5.0
 
 synopsis: Alternate prelude and extra library
 
@@ -21,6 +21,7 @@ library
         Data.Span
         Turbo.Cast
         Turbo.Prelude
+        Turbo.Operators
     build-depends:
         base,
         containers,
@@ -49,7 +50,6 @@ library
         Turbo.Internal.MapMaybe
         Turbo.Internal.Search
         Turbo.Internal.TH
-        Turbo.Operators
         Turbo.OperatorsTH
         Turbo.RootPrelude
     default-extensions:

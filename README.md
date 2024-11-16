@@ -83,6 +83,11 @@ The defined operator families are:
 	- Substitutes its right argument for the last argument of its left argument 
 	- Add `.` to the left or right to specify the arity of that function
 	- `°`, `°.`, `°:`, etc. are exactly function composition `.`, `.:`, `.:.` etc.
+- `°´` (that's a forward tick, not a backtick) function substitution where types coincide
+	- i.e. the right argument is a function that accepts the same initial argument(s) as the left side, and produces the remaining argument(s), possibly as a tuple
+	- the result is a function that only takes the arguments both sides have in common
+	- dots to the left indicate the number of shared arguments, to the right the number of arguments the right side produces
+	- the forward tick comes after the but before the angles, i.e. `.°:´` and `<..°.´>`
 - The default `:` and `:|` constructors
 	- These use `>:>` and `>:|>` instead of `:>` and `:|>` as those are illegal operator names
 	- Wrappers for `++` are also included

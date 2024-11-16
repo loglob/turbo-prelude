@@ -174,6 +174,15 @@ makeFuncSubst 3
 makeFuncSubst 4
 makeFuncSubst 5
 
+-- ** Coinciding function substitution
+makeCoincideSubst 0
+makeCoincideSubst 1
+makeCoincideSubst 2
+makeCoincideSubst 3
+makeCoincideSubst 4
+makeCoincideSubst 5
+
+
 -- * &-family of tuple mergers
 
 -- ** pairs
