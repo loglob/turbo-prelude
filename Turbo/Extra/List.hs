@@ -141,3 +141,14 @@ toSetWith pick = runIdentity . toSetWithM (Identity .: pick)
 -- | Converts a list to a map. Eliminates duplicate keys using the given picking function.
 toMapWithM :: (Ord k, Monad m) => ((k, v) -> (k, v) -> m (Maybe (k, v))) -> [(k, v)] -> m (Map k v)
 toMapWithM pick xs = M.fromDistinctAscList $> sortNubByM (\(l, _) (r, _) -> compare l r) pick xs
+
+-- | `span` with a maybe predicate 
+spanJust :: (x -> Maybe y) -> [x] -> ([y], [x])
+spanJust _ [] = ([], [])
+spanJust f (x:xs) = case f x of
+    Just y -> first (y:) (spanJust f xs)
+    Nothing -> ([], xs)
+
+-- | Alias for `spanJust`
+breakNothing :: (x -> Maybe y) -> [x] -> ([y], [x])
+breakNothing = spanJust
