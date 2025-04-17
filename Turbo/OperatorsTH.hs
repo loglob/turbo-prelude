@@ -1,4 +1,5 @@
 {-# OPTIONS_HADDOCK hide #-}
+{-# LANGUAGE CPP #-}
 
 module Turbo.OperatorsTH (makeApplicativeWrapper, makeLeftWrapper, makeOperators, makeRightWrapper, makePostponed, makeFuncSubst, makeTuplePaste, makeCoincideSubst) where
 
@@ -11,6 +12,14 @@ import Turbo.RootPrelude
 
 -- | The context placed on a type signature
 type OpInfo = (Name, Cxt, Type, Type, Type)
+
+-- this signature changed in template-haskell 2.22 (GHC 9.10.0)
+infixD :: Fixity -> Name -> Dec
+#if __GLASGOW_HASKELL__ >= 910
+infixD f n = InfixD f NoNamespaceSpecifier n 
+#else
+infixD = InfixD 
+#endif
 
 -- | Whether a type is equivalent to (->) :: * -> * -> *
 isArrow :: Type -> Bool
@@ -56,7 +65,7 @@ leftWrapper (n, ctx, a, b, c) = do
     let ctx' = (ConT ''Functor) `AppT` (VarT f) : ctx
     v <- [e|\a b -> fmap (\x -> $(conOrVarE n) x b) a|]
     return
-        [ InfixD fx n',
+        [ infixD fx n',
           SigD n' (ForallT [] ctx' (a' → b → c')),
           mkInline n',
           FunD n' [Clause [] (NormalB v) []]
@@ -73,7 +82,7 @@ rightWrapper (n, ctx, a, b, c) = do
     let ctx' = (ConT ''Functor) `AppT` (VarT f) : ctx
     v <- [e|fmap . $(conOrVarE n)|]
     return
-        [ InfixD fx n',
+        [ infixD fx n',
           SigD n' (ForallT [] ctx' (a → b' → c')),
           mkInline n',
           FunD n' [Clause [] (NormalB v) []]
@@ -91,7 +100,7 @@ applicativeWrapper (n, ctx, a, b, c) = do
     let ctx' = (ConT ''Applicative) `AppT` (VarT f) : ctx
     v <- [e|liftA2 $(conOrVarE n)|]
     return
-        [ InfixD fx n',
+        [ infixD fx n',
           SigD n' (ForallT [] ctx' (a' → b' → c')),
           mkInline n',
           FunD n' [Clause [] (NormalB v) []]
@@ -181,7 +190,7 @@ postponedDollar m n = do
     bs <- rightWrapper o
     cs <- applicativeWrapper o
     return $
-        [ InfixD (Fixity 0 InfixR) nm,
+        [ infixD (Fixity 0 InfixR) nm,
           SigD nm (t1 → t2 → t3),
           mkInline nm,
           FunD
@@ -219,7 +228,7 @@ funcSubst n m = do
     let f = mkName "f"
     let g = mkName "g"
     return $
-        [ InfixD (Fixity 9 InfixR) nm,
+        [ infixD (Fixity 9 InfixR) nm,
           SigD nm (f1 → f2 → fo),
           mkInline nm,
           FunD
@@ -253,7 +262,7 @@ tuplePaste n m = do
     r <- rightWrapper o
     a <- applicativeWrapper o
     return $
-        [ InfixD (Fixity 1 InfixL) nm,
+        [ infixD (Fixity 1 InfixL) nm,
           SigD nm (t1 → t2 → to),
           mkInline nm,
           FunD
@@ -288,7 +297,7 @@ coincideSubst n m = do
     r <- rightWrapper o
     a <- applicativeWrapper o
     return $ [
-        InfixD (Fixity 9 InfixR) nm,
+        infixD (Fixity 9 InfixR) nm,
         SigD nm (t1 → t2 → t3),
         mkInline nm,
         FunD nm [

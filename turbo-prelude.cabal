@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.6.6.0
+version:            1.6.6.1
 
 synopsis: Alternate prelude and extra library
 
@@ -29,7 +29,7 @@ library
         lens,
         mtl,
         primitive,
-        template-haskell < 2.22.0.0,
+        template-haskell,
         text,
         transformers,
         vector
