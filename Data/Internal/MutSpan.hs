@@ -3,7 +3,7 @@ module Data.Internal.MutSpan (MutSpan (), newMutSpan, newMutSpan#, snocMutSpan, 
 import Data.Internal.ISpan
 import Data.Internal.Span
 import GHC.Err (undefined)
-import GHC.Exts (RuntimeRep (BoxedRep), TYPE)
+import GHC.Exts (RuntimeRep (BoxedRep))
 import Turbo.Prelude
 
 data MutSpan s (x :: TYPE (BoxedRep l)) = MS Int# Int# (SmallMutableArray# s x)

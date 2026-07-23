@@ -6,6 +6,7 @@ import Data.Bits
 import GHC.Err (error)
 import GHC.Exts
 import Turbo.RootPrelude
+import Turbo.CastTH
 
 -- * Sign Elimination
 
@@ -137,24 +138,15 @@ extendW32i (W32# w) = I64# (intToInt64# (word2Int# (word32ToWord# w)))
 extendW :: Word -> Word64
 extendW (W# w) = W64# (wordToWord64# w)
 
--- * Int Extending
+--type (:>:) :: forall k. k -> k -> Constraint
 
--- | Extends an 8-bit signed to 64 bit. Total.
-extendI8 :: Int8 -> Int64
-extendI8 (I8# i) = I64# (intToInt64# (int8ToInt# i))
+-- | The property that `long` is a bitfield with more bits than `short`.
+class (long :: TYPE a) :>: (short :: TYPE b) where
+    -- | Bit-exact widening of a bit-field. Widening a negative number to an unsigned type is undefined. 
+    --   Performs sign extension if needed, inserts 0s otherwise.
+    extend :: short -> long
+    -- | Truncates a bit-field into a smaller type, discarding the most significant bits.
+    --   May produce negative numbers.
+    narrow :: long -> short
 
--- | Extends an 8-bit signed to Int. Total.
-extendI8' :: Int8 -> Int
-extendI8' (I8# i) = I# (int8ToInt# i)
-
--- | Extends a 16-bit signed to 64 bit. Total.
-extendI16 :: Int16 -> Int64
-extendI16 (I16# i) = I64# (intToInt64# (int16ToInt# i))
-
--- | Extends a 16-bit signed to Int. Total.
-extendI16' :: Int16 -> Int
-extendI16' (I16# i) = I# (int16ToInt# i)
-
--- | Extends a 32-bit signed to 64 bit. Total.
-extendI32 :: Int32 -> Int64
-extendI32 (I32# i) = I64# (intToInt64# (int32ToInt# i))
+makeInstances

@@ -9,7 +9,7 @@ module Data.Internal.Span (
 import Data.Internal.ISpan
 import GHC.Arr (Array (..))
 import GHC.Err (error, undefined)
-import GHC.Exts (RuntimeRep (..), TYPE)
+import GHC.Exts (RuntimeRep (..))
 import GHC.ST
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)

@@ -254,6 +254,7 @@ import GHC.Base as Exp (
  )
 import GHC.Enum as Exp (Bounded (..), Enum (..))
 import GHC.Exts as Exp (
+    TYPE,
     Array#,
     ByteArray#,
     MutableArray#,
