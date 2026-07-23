@@ -86,67 +86,13 @@ sign32 (W32# w) = if isTrue# (w `gtWord32#` 0x7FFF#Word32) then error "Input to 
 sign64 :: Word64 -> Int64
 sign64 (W64# w) = if isTrue# (w `gtWord64#` 0x7FFF#Word64) then error "Input to sign64 exceeds the bounds of Int64" else I64# (word64ToInt64# w)
 
--- * Word Extending
-
--- | Extends an 8-bit unsigned to 64 bits. Total.
-extendW8 :: Word8 -> Word64
-extendW8 (W8# w) = W64# (wordToWord64# (word8ToWord# w))
-
-{- | Extends an 8-bit unsigned to 64 bits signed. Total.
- Does not perform sign extension.
--}
-extendW8i :: Word8 -> Int64
-extendW8i (W8# w) = I64# (intToInt64# (word2Int# (word8ToWord# w)))
-
--- | Extends an 8-bit unsigned to Word. Total.
-extendW8' :: Word8 -> Word
-extendW8' (W8# w) = W# (word8ToWord# w)
-
--- | Extends an 8-bit unsigned to Int. Total.
-extendW8i' :: Word8 -> Int
-extendW8i' (W8# w) = I# (int8ToInt# (word8ToInt8# w))
-
--- | Extends a 16-bit unsigned to 64 bits. Total.
-extendW16 :: Word16 -> Word64
-extendW16 (W16# w) = W64# (wordToWord64# (word16ToWord# w))
-
-{- | Extends a 16-bit unsigned to 64 bits signed. Total.
- Does not perform sign extension.
--}
-extendW16i :: Word16 -> Int64
-extendW16i (W16# w) = I64# (intToInt64# (word2Int# (word16ToWord# w)))
-
--- | Extends a 16-bit unsigned to Word. Total.
-extendW16' :: Word16 -> Word
-extendW16' (W16# w) = W# (word16ToWord# w)
-
--- | Extends a 16-bit unsigned to Int. Total.
-extendW16i' :: Word16 -> Int
-extendW16i' (W16# w) = I# (int16ToInt# (word16ToInt16# w))
-
--- | Extends a 32-bit unsigned to 64 bits. Total.
-extendW32 :: Word32 -> Word64
-extendW32 (W32# w) = W64# (wordToWord64# (word32ToWord# w))
-
-{- | Extends a 32-bit unsigned to 64 bits signed. Total.
- Does not perform sign extension.
--}
-extendW32i :: Word32 -> Int64
-extendW32i (W32# w) = I64# (intToInt64# (word2Int# (word32ToWord# w)))
-
--- | Extends a Word to 64 bits. Total.
-extendW :: Word -> Word64
-extendW (W# w) = W64# (wordToWord64# w)
-
---type (:>:) :: forall k. k -> k -> Constraint
-
 -- | The property that `long` is a bitfield with more bits than `short`.
 class (long :: TYPE a) :>: (short :: TYPE b) where
-    -- | Bit-exact widening of a bit-field. Widening a negative number to an unsigned type is undefined. 
-    --   Performs sign extension if needed, inserts 0s otherwise.
+    -- | Bit-exact widening of a bit-field. 
+    --   Performs sign extension only when widening from a signed type to another signed type.
     extend :: short -> long
     -- | Truncates a bit-field into a smaller type, discarding the most significant bits.
-    --   May produce negative numbers.
+    --   May produce negative numbers for signed result types.
     narrow :: long -> short
 
 makeInstances
