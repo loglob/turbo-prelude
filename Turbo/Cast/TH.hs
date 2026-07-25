@@ -1,4 +1,4 @@
-module Turbo.CastTH (makeExtendInstances, makeIsSignedInstances) where
+module Turbo.Cast.TH (makeExtendInstances, makeIsSignedInstances) where
 import Language.Haskell.TH
 import GHC.Err (undefined, error)
 import Turbo.RootPrelude

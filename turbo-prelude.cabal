@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.7.0.0
+version:            1.7.0.1
 
 synopsis: Alternate prelude and extra library
 
@@ -40,7 +40,8 @@ library
         Data.Internal.TextSpan
         Data.Internal.USpan
         Data.Internal.VectorSpan
-        Turbo.CastTH
+        Turbo.Cast.Classes
+        Turbo.Cast.TH
         Turbo.Extra
         Turbo.Extra.Fork
         Turbo.Extra.List
