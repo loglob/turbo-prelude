@@ -1,19 +1,14 @@
-module Turbo.Cast.TH (makeExtendInstances, makeIsSignedInstances) where
-import Language.Haskell.TH
+module Turbo.Cast.TH (makeExtend, makeIsSigned, makeBoxedIntegers) where
 import GHC.Err (undefined, error)
-import Turbo.RootPrelude
+import GHC.Exts
+import Language.Haskell.TH
+import Turbo.Cast.Classes
 import Turbo.Extra (both)
-import GHC.Exts ((<#))
-import Data.Bits (Bits(shiftL, shiftR))
+import Turbo.Operators
+import Turbo.RootPrelude
+import Data.Char (toLower)
 
 data Width = W8 | W16 | W32 | W | W64 deriving (Eq, Show, Enum, Bounded, Ord)
-
-bits :: Width -> Int
-bits W8  = 8
-bits W16 = 16
-bits W32 = 32
-bits W   = undefined
-bits W64 = 64
 
 widths :: [Width]
 widths = [minBound .. maxBound] :: [Width]
@@ -35,126 +30,118 @@ instance Show T where
         bt = if signed t then "Int" else "Word"
         hash = if boxed t then "" else "#"
 
-t :: T -> Type
-t x = ConT $ mkName $ show x
+t :: T -> Q Type
+t x = conT $ mkName $ show x
 
-directCast :: T -> T -> Exp
-directCast (T fW _ fS) (T tW _ tS) = VarE $ mkName $ f where
-    f
-     | fW == W && tW == W = lt ++ "2" ++ rt ++ "#"
-     | otherwise          = lt ++ suffix fW ++ "To" ++ rt ++ suffix tW ++ "#"
-    lt = (if fS then "int" else "word")
-    rt = (if tS then "Int" else "Word")
+ne :: Eq b => (a -> b) -> a -> a -> Bool
+ne f x y = f x /= f y
 
-boxCtor :: T -> Name
-boxCtor (T w _ s) = mkName $ (if s then "I" else "W") ++ suffix w ++ "#"
-
-boxPat :: T -> Name -> Pat
-boxPat t name = if boxed t then BangP (ConP (boxCtor t) [] [VarP name]) else VarP name
-
-convert :: T -> T -> Exp -> Exp
-convert from to
- | from == to = id
--- unbox everything
- | boxed from = \x -> let
-        tmp = mkName "y"
-        from' = from{ boxed = False }
+-- | finds the primitive casting function between two types
+directCast :: T -> T -> Q Exp
+directCast from to
+ | from == to             = error "directCast used with same type twice"
+ | boxed from || boxed to = error "directCast used with boxed types"
+ | ne signed from to 
+     && ne width from to  = error$ "No direct conversion exists between " ++ show from ++ " and " ++ show to 
+ | otherwise = let
+        left   = toLower $> show from{boxed=True} -- skips trailing #
+        middle = if both width (from,to) == (W,W) then "2" else "To"
+        right  = show to
     in 
-        LetE [ ValD (boxPat from tmp) (NormalB x) [] ] (convert from' to $ VarE tmp)
- | boxed to   = AppE (ConE (boxCtor to)) . convert from to{ boxed = False }
--- fix signedness
- | signed from /= signed to = case()of 
-   _| width from == width to -> AppE (directCast from to)
-    -- ensure no sign extension happens by changing width within unsigned types
-    | signed from            -> let from' = from{ signed = False } in convert from' to . AppE (directCast from from')
-    | otherwise              -> let to' = to{ signed = False } in AppE (directCast to' to) . convert from to'
--- actually convert widths
- | width from == W || width to == W = AppE (directCast from to)
- | otherwise = convert from{ width=W } to . convert from to{ width = W }
+        varE$ mkName$ left++middle++right
 
--- primitiveCast from to = (VarE $ mkName $ "int" ++ from ++ "ToInt" ++ to ++ "#")
--- primitiveCast from to = (primitiveCast from "") `comp` (primitiveCast "" to)
-
-func :: String -> (Name -> Pat) -> (Exp -> Exp) -> Dec
-func name pat body = FunD (mkName name) [
-    Clause [pat tmp] (NormalB $ body $ VarE tmp) []
- ] where
-    tmp = mkName "x"
-
-mkExtend :: T -> T -> Dec
-mkExtend long short = i
- where
-    i = InstanceD Nothing [] (cls `AppT` t long `AppT` t short) [
-        func "extend" (boxPat short) (convert short{ boxed=False } long),
-        func "narrow" (boxPat long)  (convert long{ boxed=False }  short)
-     ]
-    cls = ConT $ mkName ":>:"
+-- | Casts between integer types
+cast :: T -> T -> Q Exp -> Q Exp
+cast from to exp
+ | from == to = exp
+ -- lower to unboxed parameters
+ | boxed to   = [e| box $(cast from to{boxed=False} exp) |]
+ | boxed from = cast from{boxed=False} to [e| unbox $exp |]
+ -- fix signedness
+ | signed from /= signed to = 
+    if width from == width to then [e| $(directCast from to) $exp |]
+    -- ensure no sign extension happens
+    else if signed from then let tmp = from{signed=False} in cast tmp to [e| $(directCast from tmp) $exp |] 
+    else let tmp = to{signed=False} in [e| $(directCast tmp to) $(cast from tmp exp) |]
+ -- convert widths
+ | width from /= W && width to /= W = let tmp = from{ width=W } in cast tmp to (cast from tmp exp)
+ | otherwise                        = [e| $(directCast from to) $exp |]
 
 followPairs :: [a] -> [(a,a)]
 followPairs xs = [ (x,y) | (x:rest) <- tails xs, y <- rest ]
 
-makeExtendInstances :: Q [Dec]
-makeExtendInstances = return do
-    (short,long) <- followPairs widths
+makeExtend :: Q [Dec]
+makeExtend = join $> sequence do
+    (sw,lw) <- followPairs widths
     sb <- [ True, False ]
     lb <- [ True, False ]
     -- widening a short unsigned into a long signed is valid
     (si,li) <- [ (True, True), (False, False), (False,True) ]
-    let s = T short sb si
-    let l = T long lb li
-    return (mkExtend l s)
-
-constant :: T -> Integer -> Exp
+    let short = T sw sb si
+    let long = T lw lb li
+    return [d|
+        instance $(t long) :>: $(t short) where
+            extend x = $(cast short long [e| x |])
+            narrow x = $(cast long short [e| x |])
+     |]
+    
+constant :: T -> Integer -> Q Exp
 constant t x
- | boxed t   = LitE $ IntegerL x -- these are instances of `Number`
- | otherwise = convert t{width = W} t $ LitE $ (if signed t then IntPrimL else WordPrimL) x -- TH cannot generate e.g. `0#Int32` ?
+ | boxed t      = litE $ IntegerL x -- these are instances of `Number`
+ | width t == W = litE $ (if signed t then IntPrimL else WordPrimL) x
+ -- TH cannot generate e.g. `0#Int32` ?
+ | otherwise    = let t' = t{width=W} in cast t' t (constant t' x)
 
 -- | Generates an expression that evaluates to True if $2 (of type $1) is negative and False otherwise
-isNegative :: T -> Exp -> Exp
-isNegative t n
- | boxed t   = InfixE (Just n) (VarE '(<)) (Just zero)
--- isTrue# (i `ltInt16#` 0#Int16)
- | otherwise = (VarE 'isTrue#) `AppE` (VarE lt `AppE` n `AppE` zero)
- where
-    lt | width t == W = '(<#)
-       | otherwise    = mkName$ "lt" ++ show t
-    zero = constant t 0
+isNegative :: T -> Q Exp -> Q Exp
+isNegative t n = case t of
+    T _ True _ -> [e| $n < 0 |]
+    T W _ True -> [e| isTrue# ($n <# 0#) |]
+    _          -> let lt = varE$ mkName ("lt" ++ show t)
+                  in [e| isTrue# ($lt $n $(constant t 0)) |]
 
 -- | Generates an expression that evaluates to the maximum value of a type
-maxSafeValue :: T -> Exp
-maxSafeValue t 
- | boxed t      = VarE 'maxBound -- are always bounded
- | width t == W = let t' = t{ boxed=True } in convert t' t $ maxSafeValue t' -- forward lifted definition
- -- these have fixed bit size
- | otherwise    = let
-    b = bits (width t)
-    tooLong = (1 :: Integer) `shiftL` b
-    fullSet = tooLong - 1
-    woSign = fullSet `shiftR` 1
- in 
-    constant t woSign
+maxSafeValue :: T -> Q Exp
+maxSafeValue t = if boxed t then [e| maxBound |] else [e| unbox maxBound |]
 
-makeIsSignedInstances :: Q [Dec]
-makeIsSignedInstances = return do
+makeIsSigned :: Q [Dec]
+makeIsSigned = join $> sequence do
     w <- widths
     boxed <- [ True, False ]
     let (signed, unsigned) = both (T w boxed) (True, False)
-    -- | name has to be late-resolved
-    let sig = ConT (mkName "IsSigned") `AppT` t signed `AppT` t unsigned
-    -- | Makes an unsign* function, that inserts $2 when the input was negative
-    let mkUnsign x fallback = CondE (isNegative signed x) fallback (convert signed unsigned x)
-    let tmp = mkName "y"
-    -- | Makes a sign* function, that inserts $2 when the conversion overflows
-    --   Testing sign after conversion is sufficient since the bit-width doesn't change
-    let mkSign x fallback = LetE [
-            ValD (VarP tmp) (NormalB$ convert unsigned signed x) []
-         ]$ CondE (isNegative signed$ VarE tmp) fallback (VarE tmp)
 
-    let mkError msg = (VarE 'error) `AppE` LitE (StringL msg)
-    
-    return$ InstanceD Nothing [] sig [
-        func "sign" VarP \x -> mkSign x (mkError "argument of sign is negative"),
-        func "signSat" VarP \x -> mkSign x (maxSafeValue signed),
-        func "unsign" VarP \x -> mkUnsign x (mkError "argument of unsign is out of bounds"),
-        func "unsignSat" VarP \x -> mkUnsign x (constant unsigned 0)
-     ]
+    let isNeg = isNegative signed
+
+    -- | Negates an unsigned value after bitcasting from signed, with correct behavior for the minimum signed value 
+    let totalNegate x = if boxed then [e| (complement $x) + 1 |] else case w of
+            W -> [e| not# (plusWord# $x 1##) |]
+            W64 -> [e| not64# (plusWord64# $x $(constant unsigned 1)) |]
+            _ -> let
+                not = varE$ mkName$ "notWord"++ suffix w++"#"
+                plus = varE$ mkName$ "plusWord"++suffix w++"#"
+             in
+                [e| $not ($plus $x $(constant unsigned 1)) |]
+
+    let mkSign   x fallback = [e| let y = $(cast unsigned signed x) in if $(isNeg [e| y |]) then $fallback else y |]
+    let mkUnsign x fallback = [e| if $(isNeg x) then $fallback else $(cast signed unsigned x) |]
+
+    return [d|
+        instance IsSigned $(t signed) $(t unsigned) where
+            sign    x = $(mkSign [e| x |] [e| error "input to sign was negative" |])
+            signSat x = $(mkSign [e| x |] (maxSafeValue signed))
+            unsign    x = $(mkUnsign [e| x |] [e| error "input to unsign was negative" |])
+            unsignSat x = $(mkUnsign [e| x |] (constant unsigned 0))
+            abs#      x = let y = $(cast signed unsigned [e| x |]) in if $(isNeg [e| x |]) then $(totalNegate [e| y |]) else y
+     |]
+
+makeBoxedIntegers :: Q [Dec]
+makeBoxedIntegers = join $> sequence do
+    w <- widths
+    s <- [True,False]
+    let ctor = mkName$ (if s then "I" else "W") ++ suffix w ++ "#"
+
+    return [d|
+        instance Boxed $(t T{width=w, boxed=False, signed=s}) $(t T{width=w, boxed=True, signed=s}) where
+            unbox $(conP ctor [[p| x |]]) = x
+            box x = $(conE ctor) x
+     |]
