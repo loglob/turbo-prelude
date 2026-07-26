@@ -114,13 +114,13 @@ makeIsSigned = join $> sequence do
 
     -- | Negates an unsigned value after bitcasting from signed, with correct behavior for the minimum signed value 
     let totalNegate x = if boxed then [e| (complement $x) + 1 |] else case w of
-            W -> [e| not# (plusWord# $x 1##) |]
-            W64 -> [e| not64# (plusWord64# $x $(constant unsigned 1)) |]
+            W -> [e| plusWord# (not# $x) 1## |]
+            W64 -> [e| plusWord64# (not64# $x) $(constant unsigned 1) |]
             _ -> let
                 not = varE$ mkName$ "notWord"++ suffix w++"#"
                 plus = varE$ mkName$ "plusWord"++suffix w++"#"
              in
-                [e| $not ($plus $x $(constant unsigned 1)) |]
+                [e| $plus ($not $x) $(constant unsigned 1) |]
 
     let mkSign   x fallback = [e| let y = $(cast unsigned signed x) in if $(isNeg [e| y |]) then $fallback else y |]
     let mkUnsign x fallback = [e| if $(isNeg x) then $fallback else $(cast signed unsigned x) |]
