@@ -1,5 +1,4 @@
 module Turbo.Cast.Classes where
-import Turbo.Prelude (TYPE)
 import Data.Kind (Type)
 import Turbo.RootPrelude
 

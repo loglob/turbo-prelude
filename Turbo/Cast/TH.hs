@@ -1,4 +1,4 @@
-module Turbo.Cast.TH (makeExtend, makeIsSigned, makeBoxedIntegers) where
+module Turbo.Cast.TH (makeExtend, makeIsSigned, makeBoxedIntegers, deriveBoxed) where
 import GHC.Err (undefined, error)
 import GHC.Exts
 import Language.Haskell.TH
@@ -7,6 +7,7 @@ import Turbo.Extra (both)
 import Turbo.Operators
 import Turbo.RootPrelude
 import Data.Char (toLower)
+import Data.Foldable (foldl)
 
 data Width = W8 | W16 | W32 | W | W64 deriving (Eq, Show, Enum, Bounded, Ord)
 
@@ -144,4 +145,31 @@ makeBoxedIntegers = join $> sequence do
         instance Boxed $(t T{width=w, boxed=False, signed=s}) $(t T{width=w, boxed=True, signed=s}) where
             unbox $(conP ctor [[p| x |]]) = x
             box x = $(conE ctor) x
+     |]
+
+deriveBoxed :: Name -> Q [Dec]
+deriveBoxed name = do
+    info <- reify name 
+    tc <- case info of
+        TyConI x -> return x
+        _ -> fail $ show name ++ " must refer to a type, but is " ++ show info
+    (tv,ctor) <- case tc of
+        DataD _ _ x _ [y] _ -> return (x,y)
+        DataD _ _ _ _ _   _ -> fail "Boxed type must have exactly one constructor"
+        _ -> fail "Boxed type must be defined as data"
+    (c,primType) <- case ctor of
+        NormalC   c    [(_,t)] -> return (c,t)
+        RecC      c  [(_,_,t)] -> return (c,t)
+        GadtC    [c]   [(_,t)] _ -> return (c,t)
+        RecGadtC [c] [(_,_,t)] _ -> return (c,t)
+        -- InfixC, ForallC
+        _ -> fail$ "Constructor for " ++ show name ++ " must accept a single argument"
+    let boxedType = foldl (AppT .° VarT) (ConT name) (tv <§ \case
+            PlainTV  n _   -> n
+            KindedTV n _ _ -> n)
+    let tmp = mkName "x" -- needed because names cannot be spliced
+    [d|
+        instance Boxed $(pure primType) $(pure boxedType) where
+            box x = $(conE c) x
+            unbox $(conP c [varP tmp]) = $(varE tmp)
      |]
