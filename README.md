@@ -8,6 +8,7 @@ To include the prelude, create a `cabal.project` file in your project root direc
 source-repository-package
     type: git
     location: https://github.com/loglob/turbo-prelude
+	tag: v1.7.2.1
 
 packages: ./*.cabal
 ```
