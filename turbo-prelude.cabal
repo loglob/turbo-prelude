@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               turbo-prelude
-version:            1.7.2.1
+version:            1.8.0.0
 
 synopsis: Alternate prelude and extra library
 
@@ -20,6 +20,10 @@ library
         Data.RList
         Data.SignedSet
         Data.Span
+        Data.Span.ArraySpan
+        Data.Span.MutSpan
+        Data.Span.USpan
+        Data.Span.MutUSpan
         Turbo.Cast
         Turbo.Prelude
         Turbo.Operators
@@ -34,12 +38,7 @@ library
         transformers,
         vector
     other-modules:
-        Data.Internal.ISpan
-        Data.Internal.MutSpan
-        Data.Internal.Span
-        Data.Internal.TextSpan
-        Data.Internal.USpan
-        Data.Internal.VectorSpan
+        Data.Span.Internal
         Turbo.Cast.Classes
         Turbo.Cast.TH
         Turbo.Extra
@@ -71,5 +70,6 @@ library
         -Wall
         -Wextra
         -Wno-name-shadowing
+        -Wno-orphans
     hs-source-dirs:   .
     default-language: GHC2021

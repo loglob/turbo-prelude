@@ -1,10 +1,42 @@
-module Data.Internal.ISpan where
-
-import GHC.Err
-import GHC.Exts
+module Data.Span.Internal where
+import Data.Primitive
+import GHC.Base
 import Turbo.Internal.Classes
-import Turbo.Operators
 import Turbo.RootPrelude
+import Turbo.Operators ((?!))
+
+{- | Generic wrapper for either primitive array type.
+    Differences should be negligible because they are immutable.
+    (I think they are only separate types because they could be thawed again)
+-}
+type GenArray# (a :: TYPE (BoxedRep l)) = (# Array# a | SmallArray# a #)
+
+-- | Generic wrapper around mutable arrays
+type GenMutArray# s (a :: TYPE (BoxedRep l)) = (# MutableArray# s a | SmallMutableArray# s a #)
+
+{- | A segment of an immutable array
+ Permits pointer-equality and comparison, rather than structural equality
+-}
+data Span (a :: TYPE (BoxedRep l)) 
+    -- | Arguments are offset, size, storage
+    = Span Int# Int# (GenArray# a)
+
+-- | A view of a mutable array
+data MutSpan s (x :: TYPE (BoxedRep l)) 
+    -- | Arguments are offset, size, storage
+    = MutSpan Int# Int# (GenMutArray# s x)
+
+{- | Segment of a byte array.
+ Offers more compact and efficient representation, but doesn't support laziness.
+-}
+data USpan a where
+    -- Use a GADT to bind the `Prim` constraint into the constructor, otherwise classes on USpan aren't doable
+
+    -- | Offsets/length in numbers of elements, NOT bytes
+    USpan :: (Prim a) => Int# -> Int# -> ByteArray# -> USpan a
+
+data MutUSpan s a where
+    MutUSpan :: (Prim a) => Int# -> Int# -> MutableByteArray# s -> MutUSpan s a
 
 -- ** Span class
 

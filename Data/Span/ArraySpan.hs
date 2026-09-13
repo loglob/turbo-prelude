@@ -1,19 +1,20 @@
-module Data.Internal.Span (
-    Span (),
+module Data.Span.ArraySpan (
+    Span (..),
     fromArray,
     fromArray#,
     fromSArray#,
     fromList,
+    GenArray#
 ) where
 
-import Data.Internal.ISpan
+import Data.Foldable qualified
+import Data.Span.Internal
 import GHC.Arr (Array (..))
 import GHC.Err (error, undefined)
 import GHC.Exts (RuntimeRep (..))
 import GHC.ST
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
-import Data.Foldable qualified
 
 {- | Permit either small or regular arrays
 Differences should be negligible because they are immutable

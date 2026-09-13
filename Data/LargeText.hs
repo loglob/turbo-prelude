@@ -1,8 +1,8 @@
 -- | Implements large (eager) Text with efficient indexing
 module Data.LargeText (LargeText (), Position (..), charAtPos, fromText, getLine, indexPos, posOfChar, toText, uncons, unconsPos) where
 
-import Data.Internal.ISpan
 import Data.Primitive (ByteArray (..))
+import Data.Span.Internal
 import Data.Text qualified as T
 import Data.Text.Internal (Text (..))
 import GHC.Err (error, undefined)

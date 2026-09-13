@@ -4,21 +4,12 @@ module Data.Internal.USpan (
     fromListU,
 ) where
 
-import Data.Internal.ISpan
+import Data.Span.Internal
 import Data.Primitive
 import GHC.Base
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
 import Data.Foldable qualified
-
-{- | Segment of a byte array.
- Offers more compact and efficient representation, but doesn't support laziness.
--}
-data USpan a where
-    -- Use a GADT to bind the `Prim` constraint into the constructor, otherwise classes on USpan aren't doable
-
-    -- | Offsets/length in numbers of elements, NOT bytes
-    USpan :: (Prim a) => Int# -> Int# -> ByteArray# -> USpan a
 
 capacity :: (Prim a) => Proxy a -> ByteArray# -> Int#
 capacity p bs = sizeofByteArray# bs `divInt#` sizeOfType# p

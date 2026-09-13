@@ -1,5 +1,4 @@
 {-# OPTIONS_HADDOCK hide #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | The prelude sans anything defined in this package
 module Turbo.RootPrelude (module Exp, drop, replicate, splitAt, take, maximum1, minimum1, maximumBy1, minimumBy1) where

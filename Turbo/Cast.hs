@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
 module Turbo.Cast(module E) where
 
 import GHC.Exts

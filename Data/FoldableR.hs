@@ -2,7 +2,7 @@
 module Data.FoldableR where
 
 import Data.Foldable qualified as F
-import Data.Internal.ISpan (size)
+import Data.Span (size)
 import Data.LargeText as LT
 import Data.Monoid
 import Data.Text qualified as T
