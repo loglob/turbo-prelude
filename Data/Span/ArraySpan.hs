@@ -1,6 +1,7 @@
 module Data.Span.ArraySpan (
     ArraySpan (..),
     fromArray,
+    fromSArray,
     fromArray#,
     fromSArray#,
     fromList,
@@ -8,10 +9,10 @@ module Data.Span.ArraySpan (
 ) where
 
 import Data.Foldable qualified
+import Data.Primitive (SmallArray(..))
 import Data.Span.Internal
 import GHC.Arr (Array (..))
 import GHC.Err (error, undefined)
-import GHC.Exts (RuntimeRep (..))
 import GHC.ST
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
@@ -30,9 +31,6 @@ baseSpan# (# a | #) = fromArray# a
 baseSpan# (# | a #) = fromSArray# a
 
 instance Span (ArraySpan a) where
-    baseSpanOff :: ArraySpan a -> (ArraySpan a, Int)
-    baseSpanOff (ArraySpan o _ xs) = (baseSpan# xs, I# o)
-
     extends :: Int -> Int -> ArraySpan a -> ArraySpan a
     extends (I# l) (I# r) (ArraySpan o n xs) = slice (I# (o -# l)) (I# (n +# r)) (baseSpan# xs)
 
@@ -65,6 +63,9 @@ instance Span (ArraySpan a) where
     slice (I# d) (I# n) (ArraySpan o l xs) = case _slice d n o l of
         -1# -> error "slice indices out of bounds"
         oR -> ArraySpan oR n xs
+
+instance BasedSpan (ArraySpan a) where
+    baseSpanOff (ArraySpan o _ g) = (baseSpan# g, I# o)
 
 type instance IxValue (ArraySpan a) = a
 
@@ -115,6 +116,10 @@ fromArray# a = ArraySpan 0# (sizeofArray# a) (# a | #)
 -- | Aliases a SmallArray# as a span
 fromSArray# :: SmallArray# a -> ArraySpan a
 fromSArray# a = ArraySpan 0# (sizeofSmallArray# a) (# | a #)
+
+-- | Aliases a SmallArray as a span
+fromSArray :: SmallArray a -> ArraySpan a
+fromSArray (SmallArray a) = fromSArray# a
 
 -- | Allocates a list to a small array, then creates an equivalent span
 fromList :: [a] -> ArraySpan a

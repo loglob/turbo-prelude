@@ -1,24 +1,22 @@
 module Data.Internal.USpan (
     USpan (),
-    fromBytes#,
-    fromListU,
+    fromBytes, fromBytes#,
+    fromList,
+    memcpy, memcpy#
 ) where
 
-import Data.Span.Internal
+import Data.Foldable qualified
 import Data.Primitive
+import Data.Span.Internal
 import GHC.Base
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
-import Data.Foldable qualified
 
 capacity :: (Prim a) => Proxy a -> ByteArray# -> Int#
 capacity p bs = sizeofByteArray# bs `divInt#` sizeOfType# p
 
 -- looks almost exactly like the one for ArraySpan, but just different enough to not be generalizable further
 instance Span (USpan a) where
-    baseSpanOff :: USpan a -> (USpan a, Int)
-    baseSpanOff (USpan o _ arr) = (fromBytes# arr, I# o)
-
     bounds :: USpan a -> USpan a -> Maybe (USpan a)
     bounds (USpan o n xs) (USpan p m ys) = case unsafePtrEquality# xs ys of
         1# -> let !(# q, k #) = _bounds o n p m in Just $ USpan q k xs
@@ -53,6 +51,10 @@ instance Span (USpan a) where
     slice (I# d) (I# n) (USpan o l xs) = case _slice d n o l of
         -1# -> error "slice index out of range"
         oR -> USpan oR n xs
+
+instance BasedSpan (USpan a) where
+    baseSpanOff :: USpan a -> (USpan a, Int)
+    baseSpanOff (USpan o _ arr) = (fromBytes# arr, I# o)
 
 type instance IxValue (USpan a) = a
 
@@ -90,12 +92,15 @@ instance Unsnoc (USpan a) a where
     unsnoc (USpan _ 0# _) = Nothing
     unsnoc (USpan o n xs) = Just (USpan o (n -# 1#) xs, indexByteArray# xs (o +# n -# 1#))
 
+fromBytes :: forall a. (Prim a) => ByteArray -> USpan a
+fromBytes (ByteArray b) = fromBytes# b
+
 fromBytes# :: forall a. (Prim a) => ByteArray# -> USpan a
 fromBytes# bs = USpan 0# (capacity (Proxy :: Proxy a) bs) bs
 
 -- | Allocates a list of primitives to a byte array, then creates an equivalent unboxed span
-fromListU :: forall a. (Prim a) => [a] -> USpan a
-fromListU = \xs -> runST (ST (f xs))
+fromList :: forall a. (Prim a) => [a] -> USpan a
+fromList = \xs -> runST (ST (f xs))
   where
     f :: [a] -> State# s -> (# State# s, USpan a #)
     f xs s =
@@ -117,3 +122,16 @@ fromListU = \xs -> runST (ST (f xs))
     copy s c arr l (x : xs) =
         let s' = writeByteArray# arr l x s
          in copy s' c arr (inc# l) xs
+
+-- | Copies from an unboxed span into a mutable unboxed span
+--   If spans have different size, only copies until either the destination is filled or the source is exhausted.
+--   returns the amount of bytes copied
+memcpy :: MutUSpan s a -> USpan a -> ST s Int
+memcpy t f = ST \s -> let !(# s', z #) = memcpy# t f s in (# s', I# z #)
+
+memcpy# :: MutUSpan s a -> USpan a -> State# s -> (# State# s, Int# #)
+memcpy# (MutUSpan i n dest) (USpan j m src) s0 = let
+    !z = min# n m
+    !s1 = copyByteArray# src j dest i z s0
+ in
+    (# s1, z #)

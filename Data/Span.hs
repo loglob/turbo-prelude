@@ -12,11 +12,6 @@ import Data.Foldable (length)
 
 -- * Span instance for Vector
 instance Span (V.Vector v) where
-    baseSpanOff :: V.Vector v -> (V.Vector v, Int)
-    baseSpanOff v =
-        let (a, o, _) = V.toArraySlice v
-         in (V.unsafeFromArraySlice a 0 (length a), o)
-
     bounds :: V.Vector v -> V.Vector v -> Maybe (V.Vector v)
     bounds u v =
         let
@@ -75,6 +70,12 @@ instance Span (V.Vector v) where
     slice :: Int -> Int -> V.Vector v -> V.Vector v
     slice = V.slice
 
+instance BasedSpan (V.Vector v) where
+    baseSpanOff :: V.Vector v -> (V.Vector v, Int)
+    baseSpanOff v =
+        let (a, o, _) = V.toArraySlice v
+         in (V.unsafeFromArraySlice a 0 (length a), o)
+
 instance AtConstRev (V.Vector v) v where
     (@~) = atConstRev
 
@@ -90,15 +91,6 @@ measureOff' n t = case T.measureOff n t of
 
 -- | Instance for Text indexed in chars
 instance Span Text where
-    baseSpanOff :: Text -> (Text, Int)
-    baseSpanOff (Text (ByteArray xs) byteOff _) =
-        let
-            bArr = ByteArray xs
-            base = Text bArr 0 (I# (sizeofByteArray# xs))
-            charOff = T.length (Text bArr 0 byteOff)
-         in
-            (base, charOff)
-
     bounds :: Text -> Text -> Maybe Text
     bounds (Text (ByteArray xs) (I# o) (I# n)) (Text (ByteArray ys) (I# p) (I# m)) = case unsafePtrEquality# xs ys of
         1# -> let !(# q, k #) = _bounds o n p m in Just $ Text (ByteArray xs) (I# q) (I# k)
@@ -159,3 +151,13 @@ instance Span Text where
              in case measureOff' n t' of
                     Nothing -> error "slice index out of range"
                     Just z -> Text arr (p + d) z
+
+instance BasedSpan Text where
+    baseSpanOff :: Text -> (Text, Int)
+    baseSpanOff (Text (ByteArray xs) byteOff _) =
+        let
+            bArr = ByteArray xs
+            base = Text bArr 0 (I# (sizeofByteArray# xs))
+            charOff = T.length (Text bArr 0 byteOff)
+         in
+            (base, charOff)

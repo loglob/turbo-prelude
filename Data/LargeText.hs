@@ -217,13 +217,6 @@ getLine txt ln =
             Just (_, j) -> slice i (j - i) txt
 
 instance Span LargeText where
-    baseSpanOff :: LargeText -> (LargeText, Int)
-    baseSpanOff txt@(LargeText bs ms o _) =
-        let mC = sizeofSmallArray# ms
-            !(I# z) = T.length $ finalChunk txt
-            b = LargeText bs ms 0# ((512# *# mC) +# z)
-         in (b, I# o)
-
     bounds :: LargeText -> LargeText -> Maybe LargeText
     bounds a b =
         if samePtrs a b
@@ -269,6 +262,15 @@ instance Span LargeText where
     slice (I# o) (I# n) txt = case _slice o n `app` txt of
         -1# -> error "Slice indices out of bound"
         p -> txt{charOffset = p, charCount = n}
+
+instance BasedSpan LargeText where
+    baseSpanOff :: LargeText -> (LargeText, Int)
+    baseSpanOff txt@(LargeText bs ms o _) =
+        let mC = sizeofSmallArray# ms
+            !(I# z) = T.length $ finalChunk txt
+            b = LargeText bs ms 0# ((512# *# mC) +# z)
+         in (b, I# o)
+
 
 -- | Converts a text into a large text. O(n), doesn't copy (but allocates new memory)
 fromText :: Text -> LargeText

@@ -1,9 +1,10 @@
+{-# LANGUAGE QuantifiedConstraints #-}
 module Data.Span.Internal where
 import Data.Primitive
 import GHC.Base
 import Turbo.Internal.Classes
-import Turbo.RootPrelude
 import Turbo.Operators ((?!))
+import Turbo.RootPrelude
 
 {- | Generic wrapper for either primitive array type.
     Differences should be negligible because they are immutable.
@@ -22,7 +23,7 @@ data ArraySpan (a :: TYPE (BoxedRep l))
     = ArraySpan Int# Int# (GenArray# a)
 
 -- | A view of a mutable array
-data MutSpan s (x :: TYPE (BoxedRep l)) 
+data MutSpan s (x :: TYPE (BoxedRep l))
     -- | Arguments are offset, size, storage
     = MutSpan Int# Int# (GenMutArray# s x)
 
@@ -44,19 +45,6 @@ data MutUSpan s a where
  and creating 0-copy slices
 -}
 class Span s where
-    -- | A span of the entire array the input span slices
-    baseSpan :: s -> s
-    baseSpan = fst . baseSpanOff
-
-    -- | Like `baseSpan` but also returns the starting offset of the input span
-    baseSpanOff :: s -> (s, Int)
-    baseSpanOff x =
-        let
-            b = baseSpan x
-            o = x `isSliceOf` b
-         in
-            (b, o ?! error "Span violated slice law")
-
     -- | Computes the smallest span that contains both input spans
     --   Returns `Nothing` if they are part of different base spans
     bounds :: s -> s -> Maybe s
@@ -105,7 +93,34 @@ class Span s where
                 then error "trims indices out of range"
                 else slice l (size s - l - r) s
 
-    {-# MINIMAL ((baseSpan | baseSpanOff), extends, bounds, isSliceOf, size, overlap, ptrCmp, (slice | (trims, takes))) #-}
+    {-# MINIMAL (extends, bounds, isSliceOf, size, overlap, ptrCmp, (slice | (trims, takes))) #-}
+
+-- *** BasedSpan
+
+-- | A span that can be traced back to the baseSpan that contains it
+class Span s => BasedSpan s where
+    -- | A span of the entire array the input span slices
+    baseSpan :: s -> s
+    baseSpan = fst . baseSpanOff
+
+    -- | Like `baseSpan` but also returns the starting offset of the input span
+    baseSpanOff :: s -> (s, Int)
+    baseSpanOff x =
+        let
+            b = baseSpan x
+            o = x `isSliceOf` b
+         in
+            (b, o ?! error "Span violated slice law")
+
+-- | Variant of `BasedSpan` that requires the ST monad to retrieve the baseSpan
+class (forall x y. Span (s x y)) => StateBasedSpan s where
+    -- | `baseSpan` inside `ST`
+    baseSpanST :: s x y -> ST x (s x y)
+    -- | `baseSpanOff` inside `ST`
+    baseSpanOffST :: s x y -> ST x (s x y)
+
+
+-- * Util methods
 
 -- | `compare` on unlifted `Int#`
 cmp# :: Int# -> Int# -> Ordering
