@@ -14,7 +14,7 @@ import Data.Foldable qualified
 capacity :: (Prim a) => Proxy a -> ByteArray# -> Int#
 capacity p bs = sizeofByteArray# bs `divInt#` sizeOfType# p
 
--- looks almost exactly like the one for Span, but just different enough to not be generalizable further
+-- looks almost exactly like the one for ArraySpan, but just different enough to not be generalizable further
 instance ISpan (USpan a) where
     baseSpanOff :: USpan a -> (USpan a, Int)
     baseSpanOff (USpan o _ arr) = (fromBytes# arr, I# o)

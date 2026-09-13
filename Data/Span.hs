@@ -1,4 +1,4 @@
-module Data.Span ( ISpan(..) ) where
+module Data.Span ( ISpan(..), ArraySpan(), MutSpan(), USpan(), MutUSpan() ) where
 import Turbo.RootPrelude
 import Data.Span.Internal
 import qualified Data.Vector as V

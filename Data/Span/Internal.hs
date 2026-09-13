@@ -17,9 +17,9 @@ type GenMutArray# s (a :: TYPE (BoxedRep l)) = (# MutableArray# s a | SmallMutab
 {- | A segment of an immutable array
  Permits pointer-equality and comparison, rather than structural equality
 -}
-data Span (a :: TYPE (BoxedRep l)) 
+data ArraySpan (a :: TYPE (BoxedRep l)) 
     -- | Arguments are offset, size, storage
-    = Span Int# Int# (GenArray# a)
+    = ArraySpan Int# Int# (GenArray# a)
 
 -- | A view of a mutable array
 data MutSpan s (x :: TYPE (BoxedRep l)) 

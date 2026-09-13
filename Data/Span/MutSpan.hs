@@ -84,16 +84,16 @@ newMutSpan# s =
         (# s1, st #)
 
 -- | Trims this baseSpan to the current span's dimensions, then freezes the result.
-unsafeFreezeSpan :: MutSpan s x -> ST s (Span x)
+unsafeFreezeSpan :: MutSpan s x -> ST s (ArraySpan x)
 unsafeFreezeSpan x = ST (unsafeFreezeSpan# x)
 
-unsafeFreezeSpan# :: MutSpan s x -> State# s -> (# State# s, Span x #)
+unsafeFreezeSpan# :: MutSpan s x -> State# s -> (# State# s, ArraySpan x #)
 unsafeFreezeSpan# (MutSpan o n g) s = case g of
     (# a | #) -> let
         !(# s', a' #) = unsafeFreezeArray# a s
      in
-        (# s', Span o n (# a' | #) #)
+        (# s', ArraySpan o n (# a' | #) #)
     (# | a #) -> let
         !(# s', a' #) = unsafeFreezeSmallArray# a s
      in
-        (# s', Span o n (# | a' #) #)
+        (# s', ArraySpan o n (# | a' #) #)

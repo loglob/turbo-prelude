@@ -205,7 +205,7 @@ runMapper :: (AsEmpty b) => MapperT b r Identity x -> r -> (b, x, r)
 runMapper = runIdentity .: runMapperT
 
 -- | Executes a mapping that produces a `Span`
-runMapperS :: (Prim b) => MapperS b r x -> r -> (Span b, x, r)
+runMapperS :: (Prim b) => MapperS b r x -> r -> (ArraySpan b, x, r)
 runMapperS m r0 = runST $ runMapperST newMutSpan unsafeFreezeSpan m r0
 
 -- | Executes a mapping inside the ST monad with lifted computations for the build result
@@ -225,7 +225,7 @@ runBuilder :: (AsEmpty b) => Builder b x -> (b, x)
 runBuilder b = runIdentity $ runBuilderT b
 
 -- | Executes a builder that produces a `Span`
-runBuilderS :: (Prim b) => BuilderS b x -> (Span b, x)
+runBuilderS :: (Prim b) => BuilderS b x -> (ArraySpan b, x)
 runBuilderS b = let (x, y, ()) = runMapperS b () in (x, y)
 
 -- | Executes a reducer without building

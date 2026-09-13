@@ -1,5 +1,5 @@
 module Data.Span.ArraySpan (
-    Span (..),
+    ArraySpan (..),
     fromArray,
     fromArray#,
     fromSArray#,
@@ -16,12 +16,6 @@ import GHC.ST
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
 
-{- | Permit either small or regular arrays
-Differences should be negligible because they are immutable
-(I think they are only separate types because they could be thawed again)
--}
-type GenArray# (a :: TYPE (BoxedRep l)) = (# Array# a | SmallArray# a #)
-
 at# :: GenArray# a -> Int# -> a
 at# (# a | #) i = let !(# x #) = (indexArray# a i) in x
 at# (# | a #) i = let !(# x #) = (indexSmallArray# a i) in x
@@ -31,107 +25,102 @@ samePtr (# x | #) (# y | #) = isTrue# (unsafePtrEquality# x y)
 samePtr (# | x #) (# | y #) = isTrue# (unsafePtrEquality# x y)
 samePtr _ _ = False
 
-baseSpan# :: GenArray# a -> Span a
+baseSpan# :: GenArray# a -> ArraySpan a
 baseSpan# (# a | #) = fromArray# a
 baseSpan# (# | a #) = fromSArray# a
 
-{- | A segment of an immutable array
- Permits pointer-equality and comparison, rather than structural equality
--}
-data Span (a :: TYPE (BoxedRep l)) = Span Int# Int# (GenArray# a)
+instance ISpan (ArraySpan a) where
+    baseSpanOff :: ArraySpan a -> (ArraySpan a, Int)
+    baseSpanOff (ArraySpan o _ xs) = (baseSpan# xs, I# o)
 
-instance ISpan (Span a) where
-    baseSpanOff :: Span a -> (Span a, Int)
-    baseSpanOff (Span o _ xs) = (baseSpan# xs, I# o)
+    extends :: Int -> Int -> ArraySpan a -> ArraySpan a
+    extends (I# l) (I# r) (ArraySpan o n xs) = slice (I# (o -# l)) (I# (n +# r)) (baseSpan# xs)
 
-    extends :: Int -> Int -> Span a -> Span a
-    extends (I# l) (I# r) (Span o n xs) = slice (I# (o -# l)) (I# (n +# r)) (baseSpan# xs)
+    isSliceOf :: ArraySpan a -> ArraySpan a -> Maybe Int
+    isSliceOf (ArraySpan o l xs) (ArraySpan o' l' ys) = if samePtr xs ys then _isSliceOf o l o' l' else Nothing
 
-    isSliceOf :: Span a -> Span a -> Maybe Int
-    isSliceOf (Span o l xs) (Span o' l' ys) = if samePtr xs ys then _isSliceOf o l o' l' else Nothing
+    size :: ArraySpan a -> Int
+    size (ArraySpan _ l _) = I# l
 
-    size :: Span a -> Int
-    size (Span _ l _) = I# l
-
-    overlap :: Span a -> Span a -> Maybe (Span a)
-    overlap (Span o l xs) (Span o' l' ys) =
+    overlap :: ArraySpan a -> ArraySpan a -> Maybe (ArraySpan a)
+    overlap (ArraySpan o l xs) (ArraySpan o' l' ys) =
         if samePtr xs ys
             then case _overlap o l o' l' of
                 (# -1#, _ #) -> Nothing
-                (# oR, lR #) -> Just (Span oR lR xs)
+                (# oR, lR #) -> Just (ArraySpan oR lR xs)
             else Nothing
 
-    bounds :: Span a -> Span a -> Maybe (Span a)
-    bounds (Span o n xs) (Span p m ys) =
+    bounds :: ArraySpan a -> ArraySpan a -> Maybe (ArraySpan a)
+    bounds (ArraySpan o n xs) (ArraySpan p m ys) =
         if samePtr xs ys
-            then let !(# q, k #) = _bounds o n p m in Just (Span q k xs)
+            then let !(# q, k #) = _bounds o n p m in Just (ArraySpan q k xs)
             else Nothing
 
-    ptrCmp :: Span a -> Span a -> Maybe Ordering
-    ptrCmp (Span o _ xs) (Span p _ ys) = case samePtr xs ys of
+    ptrCmp :: ArraySpan a -> ArraySpan a -> Maybe Ordering
+    ptrCmp (ArraySpan o _ xs) (ArraySpan p _ ys) = case samePtr xs ys of
         True -> Just (cmp# o p)
         False -> Nothing
 
-    slice :: Int -> Int -> Span a -> Span a
-    slice (I# d) (I# n) (Span o l xs) = case _slice d n o l of
+    slice :: Int -> Int -> ArraySpan a -> ArraySpan a
+    slice (I# d) (I# n) (ArraySpan o l xs) = case _slice d n o l of
         -1# -> error "slice indices out of bounds"
-        oR -> Span oR n xs
+        oR -> ArraySpan oR n xs
 
-type instance IxValue (Span a) = a
+type instance IxValue (ArraySpan a) = a
 
-type instance Index (Span a) = Int
+type instance Index (ArraySpan a) = Int
 
-instance AtConst (Span a) where
-    (@) :: Span a -> Int -> Maybe a
-    (Span o l xs) @ (I# i) =
+instance AtConst (ArraySpan a) where
+    (@) :: ArraySpan a -> Int -> Maybe a
+    (ArraySpan o l xs) @ (I# i) =
         if i `geq#` 0# && i `lt#` l
             then Just (at# xs (o +# i))
             else Nothing
 
-instance AtConstRev (Span a) a where
-    (@~) :: Span a -> Int -> Maybe a
+instance AtConstRev (ArraySpan a) a where
+    (@~) :: ArraySpan a -> Int -> Maybe a
     (@~) = atConstRev
 
-instance Foldable Span where
-    foldl :: (b -> a -> b) -> b -> Span a -> b
-    foldl f b0 (Span o l xs) = for f (at# xs) o (o +# l) b0
-    foldr :: (a -> b -> b) -> b -> Span a -> b
-    foldr f b0 (Span o l xs) = forr f (at# xs) o (o +# l) b0
-    null (Span _ l _) = l `eq#` 0#
-    length (Span _ l _) = I# l
+instance Foldable ArraySpan where
+    foldl :: (b -> a -> b) -> b -> ArraySpan a -> b
+    foldl f b0 (ArraySpan o l xs) = for f (at# xs) o (o +# l) b0
+    foldr :: (a -> b -> b) -> b -> ArraySpan a -> b
+    foldr f b0 (ArraySpan o l xs) = forr f (at# xs) o (o +# l) b0
+    null (ArraySpan _ l _) = l `eq#` 0#
+    length (ArraySpan _ l _) = I# l
 
-instance (Show a) => Show (Span a) where
+instance (Show a) => Show (ArraySpan a) where
     showsPrec p xs = showsPrec p (toList xs)
 
-instance Uncons (Span a) a where
-    uncons :: Span a -> Maybe (a, Span a)
-    uncons (Span _ 0# _) = Nothing
-    uncons (Span o n xs) = Just (xs `at#` o, Span (o +# 1#) (n -# 1#) xs)
+instance Uncons (ArraySpan a) a where
+    uncons :: ArraySpan a -> Maybe (a, ArraySpan a)
+    uncons (ArraySpan _ 0# _) = Nothing
+    uncons (ArraySpan o n xs) = Just (xs `at#` o, ArraySpan (o +# 1#) (n -# 1#) xs)
 
-instance Unsnoc (Span a) a where
-    unsnoc :: Span a -> Maybe (Span a, a)
-    unsnoc (Span _ 0# _) = Nothing
-    unsnoc (Span o n xs) = Just (Span o (n -# 1#) xs, xs `at#` (o +# n -# 1#))
+instance Unsnoc (ArraySpan a) a where
+    unsnoc :: ArraySpan a -> Maybe (ArraySpan a, a)
+    unsnoc (ArraySpan _ 0# _) = Nothing
+    unsnoc (ArraySpan o n xs) = Just (ArraySpan o (n -# 1#) xs, xs `at#` (o +# n -# 1#))
 
 {- | Aliases an array as a span.
  Discards index types completely, rebasing the array to 0.
 -}
-fromArray :: Array i a -> Span a
-fromArray (Array _ _ (I# n) xs) = Span 0# n (# xs | #)
+fromArray :: Array i a -> ArraySpan a
+fromArray (Array _ _ (I# n) xs) = ArraySpan 0# n (# xs | #)
 
 -- | Aliases an Array# as a span
-fromArray# :: Array# a -> Span a
-fromArray# a = Span 0# (sizeofArray# a) (# a | #)
+fromArray# :: Array# a -> ArraySpan a
+fromArray# a = ArraySpan 0# (sizeofArray# a) (# a | #)
 
 -- | Aliases a SmallArray# as a span
-fromSArray# :: SmallArray# a -> Span a
-fromSArray# a = Span 0# (sizeofSmallArray# a) (# | a #)
+fromSArray# :: SmallArray# a -> ArraySpan a
+fromSArray# a = ArraySpan 0# (sizeofSmallArray# a) (# | a #)
 
 -- | Allocates a list to a small array, then creates an equivalent span
-fromList :: [a] -> Span a
+fromList :: [a] -> ArraySpan a
 fromList = \xs -> runST (ST (f xs))
   where
-    f :: [a] -> State# s -> (# State# s, Span a #)
+    f :: [a] -> State# s -> (# State# s, ArraySpan a #)
     f xs s =
         let siz = 128#
             !(# s1, mut #) = newSmallArray# siz (undefined :: a) s
