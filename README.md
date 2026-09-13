@@ -34,6 +34,8 @@ default-extensions:
 	BlockArguments
 ```
 
+You can also use my [project template](https://github.com/loglob/scaffolds) which has this configuration already baked-in.
+
 ## Custom Operators
 The prelude redefines a lot of Haskell's default operators.
 This is mostly for ironing out inconsistencies in the default Prelude, i.e. why is `<$` included while `$>` is not.
@@ -95,3 +97,65 @@ The defined operator families are:
 	- They are lazy in their right arguments and their functor and applicator wrappers also shortcut
 
 With functor and applicative variants for each.
+
+## Extra Datatypes
+**Data.LargeText** provides a wrapper around `Data.Text` that provides efficient O(1) indexing as well as mapping to/from line/column positions.
+
+**Data.Or** is a variant of `Data.Either` that permits both cases to be present at once.
+
+**Data.RList** is a Prelude-like linked-list that appends to the right rather than prepending to the left.
+
+**Data.SignedSet** is a (non-traversable) set that may be infinite, and can be defined via difference from the universe of a type.
+
+### Data.Span
+This module contains types for efficient O(1) slicing of data structures such as arrays and `Data.Text`.
+
+**Data.Span.Span** is the type class that describes all such types.
+
+**Data.Span.ArraySpan** is a span wrapper for `Array#` and `SmallArray#`
+
+**Data.Span.ArraySpan** is a span wrapper for `MutableArray#` and `SmallMutableArray#`
+
+**Data.Span.USpan** is a span wrapper for unboxed arrays. These are more efficient but don't permit laziness.
+
+**Data.Span.ArraySpan** is a span wrapper for mutable unboxed arrays.
+
+## Extra Type Classes
+
+**Data.FoldableR** expresses that a type supports fold operations.
+This class exists to allow folding for types that can't be `Foldable`, i.e. aren't `* -> *`, such as instances of `Uncons` or `Unsnoc`.  
+Instances are e.g. all `Foldable`s, `Text`, `LargeText`, ...
+
+**Data.ISpan** expresses that a type behaves like an array slice i.e. allows 0-copy O(1) slicing.  
+Instances are e.g. `Text`, `LargeText`, `Data.Vector`, primitive arrays (via `Data.Span` or `Data.MutSpan`)
+
+### Turbo.Cast
+This module contains a set of classes for using both boxed and unboxed bit-fields.
+
+**Boxed** expresses the relation between a lifted box type and an unboxed type.  
+Instances are e.g. `Int` and `Int#`, `Char` and `Char#`, ...
+
+**(:>:)** expresses that one bit-field type is wider than another bit-field type, with a set of casting operation.  
+Instances are e.g. `Int64` and `Int32`, `Int64#` and `Int32#`, ...
+
+**IsSigned** expresses that one bit-field type is the signed version of another bit-field type.
+Instances are e.g. `Int64` and `Word64`, `Int32#` and `Word32#`, ...
+
+### lens Extensions
+These classes are weaker versions of classes defined in `lens`.
+
+**Turbo.Prelude.Uncons** is weaker `Cons` that expresses that a type can be recursively destructured into a leftmost item and a tail.  
+Instances are e.g. `[]`.  
+This class is used to provide generalized variants of list operations, such as `Turbo.Prelude.dropWhile`.
+
+**Turbo.Prelude.Unsnoc** is weaker `Snoc` that expresses that a type can be recursively destructured into a rightmost item and a prefix.  
+Instances are e.g. `RList`
+
+**Turbo.Prelude.AtConst** is weaker `At` that expresses that a type can be indexed to produce values (but does not provide lenses for those items).  
+This class is used to express the preferred indexing operator `@`.  
+Instances are e.g. `[]`, `RList`, `Map`
+
+**Turbo.Prelude.AtConstRev** is a variant of `AtConst` that permits indexing from right to left. Its indices must be `Int`s.
+It is used to express the reversed indexing operator `@~`.  
+Instances are e.g. `[]`, `RList`, ...
+-+
