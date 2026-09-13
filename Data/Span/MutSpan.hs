@@ -6,6 +6,9 @@ module Data.Span.MutSpan (
     unsafeFreezeSpan, unsafeFreezeSpan#,
     set, set#,
     get, get#,
+    memcpy, memcpy#,
+    memdup,
+    freezeCopy
  ) where
 
 import Data.Span.Internal
@@ -57,7 +60,6 @@ instance Span (MutSpan s a) where
         -1# -> error "Slice indices out of bounds"
         o   -> MutSpan o n arr
 
-
 instance StateBasedSpan MutSpan where
     baseSpanOffST (MutSpan o _ g) = ST \s0 -> let
         !(# s1, z #) = case g of
@@ -73,6 +75,7 @@ set# (MutSpan i n g) j x s
         (# a | #) -> writeArray# a (i +# j) x s
         (# | a #) -> writeSmallArray# a (i +# j) x s
 
+-- | Writing operation for mutable span
 set :: MutSpan s x -> Int -> x -> ST s ()
 set m (I# i) x = ST \s -> (# set# m i x s, () #)
 
@@ -83,6 +86,7 @@ get# (MutSpan i n g) j s
         (# a | #) -> readArray# a (i +# j) s
         (# | a #) -> readSmallArray# a (i +# j) s
 
+-- | Indexing operation for mutable span
 get :: MutSpan s x -> Int -> ST s x
 get m (I# i) = ST (get# m i)
 
@@ -105,7 +109,7 @@ populate m f = ST \s -> (# populate# m (\i s' -> let !(ST g) = f (I# i) in g s')
 -- | Copies the contents of a mutable span into another mutable span
 --   $1 - Destination to copy into
 --   $2 - Source to copy from
-memcpy# :: forall s x. MutSpan s x -> MutSpan s x -> State# s -> (# State# s, Int# #)
+memcpy# :: MutSpan s x -> MutSpan s x -> State# s -> (# State# s, Int# #)
 memcpy# (MutSpan i n dst) r@(MutSpan j m src) s = let
     !z = min# n m
     !s' = case (# dst, src #) of
@@ -116,6 +120,22 @@ memcpy# (MutSpan i n dst) r@(MutSpan j m src) s = let
         _ -> populate# (MutSpan i z dst) (get# r) s
  in
     (# s', z #)
+
+memcpy :: MutSpan s x -> MutSpan s x -> ST s Int
+memcpy dst src = ST \s -> let !(# s', z #) = memcpy# dst src s in (# s', I# z #)
+
+-- | Allocates an independent copy of a span. Only copies the addressable portion of the underlying array.
+memdup :: MutSpan s x -> ST s (MutSpan s x)
+memdup src@(MutSpan _ n arr) = do
+    new <- ST \s -> case arr of
+        (# _ | #) -> let !(# s', arr' #) = newArray# n undefined s      in (# s', MutSpan 0# n (# arr' | #) #)
+        (# | _ #) -> let !(# s', arr' #) = newSmallArray# n undefined s in (# s', MutSpan 0# n (# | arr' #) #)
+    _ <- memcpy new src
+    return new
+
+-- | Creates a frozen copy of this span. Only copies the addressable portion of the underlying array.
+freezeCopy :: MutSpan s x -> ST s (ArraySpan x)
+freezeCopy m = memdup m >>= unsafeFreezeSpan
 
 -- | Trims the underlying array to represent precisely the given slice of it.
 --   Either resizes the underlying array directly, or allocates a new array.
@@ -181,7 +201,8 @@ newMutSpan# s =
      in
         (# s1, st #)
 
--- | Trims this baseSpan to the current span's dimensions, then freezes the result.
+-- | Freezes the array underlying a span.
+--   (!) Any references to the mutable array must not be used afterwards.
 unsafeFreezeSpan :: MutSpan s x -> ST s (ArraySpan x)
 unsafeFreezeSpan x = ST (unsafeFreezeSpan# x)
 
