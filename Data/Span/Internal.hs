@@ -116,8 +116,10 @@ class Span s => BasedSpan s where
 class (forall x y. Span (s x y)) => StateBasedSpan s where
     -- | `baseSpan` inside `ST`
     baseSpanST :: s x y -> ST x (s x y)
+    baseSpanST x = fmap fst (baseSpanOffST x)
+
     -- | `baseSpanOff` inside `ST`
-    baseSpanOffST :: s x y -> ST x (s x y)
+    baseSpanOffST :: s x y -> ST x (s x y, Int)
 
 
 -- * Util methods

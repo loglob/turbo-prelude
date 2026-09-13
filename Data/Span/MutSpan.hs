@@ -2,11 +2,11 @@ module Data.Span.MutSpan (MutSpan (), newMutSpan, newMutSpan#, snocMutSpan, snoc
 
 import Data.Span.Internal
 import GHC.Err (undefined)
-import GHC.Exts (RuntimeRep (BoxedRep), unsafeThawArray#, unsafeThawSmallArray#, andI#)
+import GHC.Exts (RuntimeRep (BoxedRep), unsafeThawArray#, unsafeThawSmallArray#, andI#, copySmallMutableArray#, copyMutableArray#)
 import Turbo.Prelude
+import GHC.Base (error)
 
 instance Span (MutSpan s a) where
-    baseSpanOff (MutSpan o _ a) = (_, I# o)
     extends = _
     bounds = _
     isSliceOf = _
@@ -15,9 +15,58 @@ instance Span (MutSpan s a) where
     ptrCmp = _
     slice = _
 
+instance StateBasedSpan MutSpan where
+    baseSpanOffST (MutSpan o _ g) = ST \s0 -> let
+        !(# s1, z #) = case g of
+            (# a | #) -> (# s0, sizeofMutableArray# a #)
+            (# | a #) -> getSizeofSmallMutableArray# a s0
+     in
+        (# s1, (MutSpan 0# z g, I# o) #)
+
+set# :: MutSpan s x -> Int# -> x -> State# s -> State# s
+set# (MutSpan i n g) j x s
+    | j `geq#` n = error "Index out of bounds"
+    | otherwise  = case g of
+        (# a | #) -> writeArray# a (i +# j) x s
+        (# | a #) -> writeSmallArray# a (i +# j) x s
+
+get# :: MutSpan s x -> Int# -> State# s -> (# State# s, x #)
+get# (MutSpan i n g) j s 
+    | j `geq#` n = error "Index out of bounds"
+    | otherwise  = case g of
+        (# a | #) -> readArray# a (i +# j) s
+        (# | a #) -> readSmallArray# a (i +# j) s
+
+populate# :: MutSpan s x -> (Int# -> State# s -> (# State# s, x #)) -> State# s -> State# s
+populate# m@(MutSpan _ n _) get = loop 0#
+ where
+    loop o s | o `geq#` n = s
+    loop o s = let
+        !(# s1, x #) = get o s
+        !s2 = set# m o x s1
+     in
+        loop (inc# o) s2
+
+-- | Populates a span with the results of the given stateful computation
+--  $1 - Span to fill
+--  $2 - Function that determines values to place at each index. Indices are relative to span.
+populate :: MutSpan s x -> (Int -> ST s x) -> ST s ()
+populate m f = ST \s -> (# populate# m (\i s' -> let !(ST g) = f (I# i) in g s') s, () #)
+
 -- | Copies the contents of a mutable span into another mutable span
-memcpy :: MutSpan s x -> MutSpan s x -> ST s ()
-memcpy = _
+--   $1 - Destination to copy into
+--   $2 - Source to copy from
+memcpy# :: forall s x. MutSpan s x -> MutSpan s x -> State# s -> (# State# s, Int# #)
+memcpy# (MutSpan i n dst) r@(MutSpan j m src) s = let
+    !z = min# n m
+    !s' = case (# dst, src #) of
+        -- first check for primitive copy
+        (# (# t | #), (# f | #) #) -> copyMutableArray# f i t j n s
+        (# (# | t #), (# | f #) #) -> copySmallMutableArray# f i t j n s
+        -- fall back to slow copy (need to reconstruct left arg so that size matches)
+        _ -> populate# (MutSpan i z dst) (get# r) s
+ in
+    (# s', z #)
 
 -- | Trims the underlying array to represent precisely the given slice of it.
 --   Either resizes the underlying array directly, or allocates a new array.
@@ -46,7 +95,7 @@ ensureCapacity# cur@(MutSpan i n g) m s0 = let
     !padding = if rest `gt#` 0# then grain -# rest else 0#
     !newSize = want +# padding
  in 
-    resizeMutSpan# cur newSize s1
+    _
 
 -- | Appends to the right of a mutable span
 -- (!) the returned slice 
