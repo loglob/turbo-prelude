@@ -187,7 +187,7 @@ _overlap o l o' l' =
             else (# -1#, -1# #)
 
 {- | Bounds-checks a slicing operation
-takes (offset, length) pairs, slice first, then array
+    takes (offset, length) pairs, slice first, then array
 -}
 _slice :: Int# -> Int# -> Int# -> Int# -> Int#
 _slice d n o l =

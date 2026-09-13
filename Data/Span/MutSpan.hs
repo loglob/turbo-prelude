@@ -1,19 +1,62 @@
-module Data.Span.MutSpan (MutSpan (), newMutSpan, newMutSpan#, snocMutSpan, snocMutSpan#, unsafeFreezeSpan, unsafeFreezeSpan#) where
+module Data.Span.MutSpan (
+    MutSpan (),
+    newMutSpan, newMutSpan#,
+    populate, populate#,
+    snocMutSpan, snocMutSpan#,
+    unsafeFreezeSpan, unsafeFreezeSpan#,
+    set, set#,
+    get, get#,
+ ) where
 
 import Data.Span.Internal
 import GHC.Err (undefined)
-import GHC.Exts (RuntimeRep (BoxedRep), unsafeThawArray#, unsafeThawSmallArray#, andI#, copySmallMutableArray#, copyMutableArray#)
-import Turbo.Prelude
+import GHC.Exts (andI#, copySmallMutableArray#, copyMutableArray#, sameMutableArray#, sameSmallMutableArray#)
+import Turbo.RootPrelude hiding (set)
 import GHC.Base (error)
 
+samePtr :: GenMutArray# s a -> GenMutArray# s a -> Bool
+samePtr (# x | #) (# y | #) = isTrue# (sameMutableArray# x y)
+samePtr (# | x #) (# | y #) = isTrue# (sameSmallMutableArray# x y)
+samePtr _ _ = False
+
 instance Span (MutSpan s a) where
-    extends = _
-    bounds = _
-    isSliceOf = _
+    extends :: Int -> Int -> MutSpan s a -> MutSpan s a
+    extends (I# l) (I# r) (MutSpan i n arr) 
+        | l `lt#` 0# || r `lt#` 0# = error "Sizes must not be negative"
+        | l `gt#` i = error "Size out of bounds"
+        -- we cannot (properly) check capacity without a state thread
+        | otherwise = MutSpan (i -# l) (n +# l +# r) arr
+
+    bounds :: MutSpan s a -> MutSpan s a -> Maybe (MutSpan s a)
+    bounds (MutSpan i n xs) (MutSpan j m ys)
+        | samePtr xs ys = let !(# o, l #) = _bounds i n j m in Just (MutSpan o l xs)
+        | otherwise              = Nothing
+
+    isSliceOf :: MutSpan s a -> MutSpan s a -> Maybe Int
+    isSliceOf (MutSpan i n xs) (MutSpan j m ys)
+        | samePtr xs ys = _isSliceOf i n j m
+        | otherwise              = Nothing
+
+    size :: MutSpan s a -> Int
     size (MutSpan _ n _) = I# n
-    overlap = _
-    ptrCmp = _
-    slice = _
+
+    overlap :: MutSpan s a -> MutSpan s a -> Maybe (MutSpan s a)
+    overlap (MutSpan i n xs) (MutSpan j m ys)
+        | samePtr xs ys = case _overlap i n j m of
+            (# -1#, -1# #) -> Nothing
+            (# o, l #)     -> Just (MutSpan o l xs)
+        | otherwise              = Nothing
+
+    ptrCmp :: MutSpan s a -> MutSpan s a -> Maybe Ordering
+    ptrCmp (MutSpan i _ xs) (MutSpan j _ ys)
+        | samePtr xs ys = Just (cmp# i j)
+        | otherwise     = Nothing
+
+    slice :: Int -> Int -> MutSpan s a -> MutSpan s a
+    slice (I# i) (I# n) (MutSpan j m arr) = case _slice i n j m of
+        -1# -> error "Slice indices out of bounds"
+        o   -> MutSpan o n arr
+
 
 instance StateBasedSpan MutSpan where
     baseSpanOffST (MutSpan o _ g) = ST \s0 -> let
@@ -30,12 +73,18 @@ set# (MutSpan i n g) j x s
         (# a | #) -> writeArray# a (i +# j) x s
         (# | a #) -> writeSmallArray# a (i +# j) x s
 
+set :: MutSpan s x -> Int -> x -> ST s ()
+set m (I# i) x = ST \s -> (# set# m i x s, () #)
+
 get# :: MutSpan s x -> Int# -> State# s -> (# State# s, x #)
 get# (MutSpan i n g) j s 
     | j `geq#` n = error "Index out of bounds"
     | otherwise  = case g of
         (# a | #) -> readArray# a (i +# j) s
         (# | a #) -> readSmallArray# a (i +# j) s
+
+get :: MutSpan s x -> Int -> ST s x
+get m (I# i) = ST (get# m i)
 
 populate# :: MutSpan s x -> (Int# -> State# s -> (# State# s, x #)) -> State# s -> State# s
 populate# m@(MutSpan _ n _) get = loop 0#
