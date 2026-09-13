@@ -1,4 +1,4 @@
-module Data.Span ( ISpan(..), ArraySpan(), MutSpan(), USpan(), MutUSpan() ) where
+module Data.Span ( Span(..), ArraySpan(), MutSpan(), USpan(), MutUSpan() ) where
 import Turbo.RootPrelude
 import Data.Span.Internal
 import qualified Data.Vector as V
@@ -11,7 +11,7 @@ import GHC.Err (error)
 import Data.Foldable (length)
 
 -- * Span instance for Vector
-instance ISpan (V.Vector v) where
+instance Span (V.Vector v) where
     baseSpanOff :: V.Vector v -> (V.Vector v, Int)
     baseSpanOff v =
         let (a, o, _) = V.toArraySlice v
@@ -89,7 +89,7 @@ measureOff' n t = case T.measureOff n t of
     _ -> Nothing
 
 -- | Instance for Text indexed in chars
-instance ISpan Text where
+instance Span Text where
     baseSpanOff :: Text -> (Text, Int)
     baseSpanOff (Text (ByteArray xs) byteOff _) =
         let

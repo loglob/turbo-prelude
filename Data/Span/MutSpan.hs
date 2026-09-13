@@ -5,7 +5,7 @@ import GHC.Err (undefined)
 import GHC.Exts (RuntimeRep (BoxedRep), unsafeThawArray#, unsafeThawSmallArray#, andI#)
 import Turbo.Prelude
 
-instance ISpan (MutSpan s a) where
+instance Span (MutSpan s a) where
     baseSpanOff (MutSpan o _ a) = (_, I# o)
     extends = _
     bounds = _

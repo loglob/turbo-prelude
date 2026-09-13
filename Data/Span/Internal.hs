@@ -43,7 +43,7 @@ data MutUSpan s a where
 {- | A collection type that permits comparing the underlying pointers,
  and creating 0-copy slices
 -}
-class ISpan s where
+class Span s where
     -- | A span of the entire array the input span slices
     baseSpan :: s -> s
     baseSpan = fst . baseSpanOff
@@ -203,5 +203,5 @@ forr op at lo hi = loop (hi -# 1#)
             else b
 
 -- | Fast implementation for @~ if @ is O(1)
-atConstRev :: (ISpan xs, AtConst xs, Index xs ~ Int) => xs -> Int -> Maybe (IxValue xs)
+atConstRev :: (Span xs, AtConst xs, Index xs ~ Int) => xs -> Int -> Maybe (IxValue xs)
 atConstRev xs i = xs @ (size xs - i - 1)

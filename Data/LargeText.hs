@@ -216,7 +216,7 @@ getLine txt ln =
             Nothing -> slice i (size txt - i) txt
             Just (_, j) -> slice i (j - i) txt
 
-instance ISpan LargeText where
+instance Span LargeText where
     baseSpanOff :: LargeText -> (LargeText, Int)
     baseSpanOff txt@(LargeText bs ms o _) =
         let mC = sizeofSmallArray# ms

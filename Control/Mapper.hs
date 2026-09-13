@@ -113,32 +113,32 @@ yieldS' l x = SM $ modifyM $ output $ l \b -> snocMutSpan b x
 {- | Gets the singleton span immediately to the left of the next input.
   If no input has been consumed, returns a 0-length span.
 -}
-getLastSpan :: (Monad m, ISpan r) => MapperT b r m r
+getLastSpan :: (Monad m, Span r) => MapperT b r m r
 getLastSpan =
     SM $
         gets rest <§ \r ->
             let b = baseSpan r
              in case r `isSliceOf` b of
-                    Nothing -> error "getLeftPos: ISpan instance violates baseSpan law"
+                    Nothing -> error "getLeftPos: Span instance violates baseSpan law"
                     Just 0 -> slice 0 0 r
                     Just n -> slice (n - 1) 1 b
 
 -- | Equivalent to `fst $> trace pop` without advancing state
-peekSpan :: (Monad m, ISpan r) => MapperT b r m r
+peekSpan :: (Monad m, Span r) => MapperT b r m r
 peekSpan = SM $ gets rest <§ \r -> takes (signum $ size r) r
 
 -- | Inspects the span consumed by another mapping
-trace :: (Monad m, ISpan r) => MapperT b r m x -> MapperT b r m (r, x)
+trace :: (Monad m, Span r) => MapperT b r m x -> MapperT b r m (r, x)
 trace (SM f) = SM do
     prev <- gets rest
     x <- f
     post <- gets rest
     return case post `isSliceOf` prev of
-        Nothing -> error "trace: ISpan instance violates uncons law"
+        Nothing -> error "trace: Span instance violates uncons law"
         Just o -> (takes o prev, x)
 
 -- | Variant of `trace` that completes a function instead of building a tuple
-trace' :: (Monad m, ISpan r) => MapperT b r m (r -> x) -> MapperT b r m x
+trace' :: (Monad m, Span r) => MapperT b r m (r -> x) -> MapperT b r m x
 trace' x = uncurry (flip ($)) $> trace x
 
 -- | Previews the next return value of `pop`

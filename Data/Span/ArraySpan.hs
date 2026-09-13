@@ -29,7 +29,7 @@ baseSpan# :: GenArray# a -> ArraySpan a
 baseSpan# (# a | #) = fromArray# a
 baseSpan# (# | a #) = fromSArray# a
 
-instance ISpan (ArraySpan a) where
+instance Span (ArraySpan a) where
     baseSpanOff :: ArraySpan a -> (ArraySpan a, Int)
     baseSpanOff (ArraySpan o _ xs) = (baseSpan# xs, I# o)
 
