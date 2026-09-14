@@ -155,51 +155,76 @@ max# x y = if isTrue# (x ># y) then x else y
 min# :: Int# -> Int# -> Int#
 min# x y = if isTrue# (x <# y) then x else y
 
-_bounds :: Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
-_bounds o n p m =
-    let lo = min# o p
-        hi = max# (o +# n) (p +# m)
-     in (# lo, hi -# lo #)
+type OffsetLength = (# Int#, Int# #)
 
+-- | Generic helper for `bounds`.
+--  Takes two (offset, length) pairs then produces a third that is the smallest bound around both
+_bounds :: OffsetLength -> OffsetLength -> OffsetLength
+_bounds (# i, n #) (# j , m #) = let 
+    lo = min# i j
+    hi = max# (i +# n) (j +# m)
+ in 
+    (# lo, hi -# lo #)
 
--- | Weaker form of `_extends` without total capacity information
-_extends' :: Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
-_extends' l r i n
-    | l `lt#` 0# || r `lt#` 0# || l `gt#` i = (# -1#, -1# #) 
-    | otherwise                             = (# i -# l, n +# l +# r #)
+type OptOffsetLength = (# (##) | OffsetLength #)
 
--- | Generic helper for `extends`. Takes left extension, right extension, cur offset, cur length, total capacity
-_extends :: Int# -> Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
-_extends l r i n z 
-    | (l +# r +# i +# n) `gt#` z = (# -1#, -1# #)
-    | otherwise                = _extends' l r i n
+pattern OOB :: OptOffsetLength
+pattern OOB <- !(# (##) | #) where
+    OOB = (# (##) | #)
+
+pattern InBounds :: OffsetLength -> OptOffsetLength
+pattern InBounds x <- !(# | x #) where
+    InBounds x = (# | x #)
+
+-- | Weaker form of `_extends` without knowing the total capacity
+--
+-- $1 - left extension
+-- $2 - right extension
+-- $3 - current span dimensions
+_extends' :: Int# -> Int# -> OffsetLength -> OptOffsetLength
+_extends' l r (# i, n #)
+    | l `lt#` 0# || r `lt#` 0# || l `gt#` i = OOB
+    | otherwise                             = InBounds (# i -# l, n +# l +# r #)
+
+-- | Generic helper for `extends`
+--
+-- $1 - left extension
+-- $2 - right extension
+-- $3 - current span dimensions
+-- $4 - total capacity of underlying buffer
+_extends :: Int# -> Int# -> OffsetLength -> Int# -> OptOffsetLength
+_extends l r (# i, n #) z
+    | (l +# r +# i +# n) `gt#` z = OOB
+    | otherwise                = _extends' l r (# i, n #)
 
 -- | Generic helper for `isSliceOf` that takes (offset, length) pairs
-_isSliceOf :: Int# -> Int# -> Int# -> Int# -> Maybe Int
-_isSliceOf o l o' l' =
-    if isTrue# (o >=# o') && isTrue# (o +# l <=# o' +# l')
-        then Just (I# (o -# o'))
-        else Nothing
+-- $1 - smaller slice candidate
+-- $2 - larger base candidate
+-- returns Index of slice within base span, if applicable
+_isSliceOf :: OffsetLength -> OffsetLength -> Maybe Int
+_isSliceOf (# i, n #) (# j, m #)
+    | (i `geq#` j) && ((i +# n) `leq#` (j +# m)) = Just (I# (i -# j))
+    | otherwise                                  = Nothing
 
-{- | Generic helper or `overlap` on (offset, length) pairs.
- Returns (-1,-1) to signal that there is no overlap
--}
-_overlap :: Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
-_overlap o l o' l' =
-    let oR = max# o o'
-        hR = min# (o +# l) (o' +# l')
-     in if isTrue# (oR <=# hR)
-            then (# oR, (hR -# oR) #)
-            else (# -1#, -1# #)
+-- | Generic helper or `overlap`
+_overlap :: OffsetLength -> OffsetLength -> OptOffsetLength
+_overlap (# i, n #) (# j, m #) =
+    let oR = max# i j
+        hR = min# (i +# n) (j +# m)
+     in if oR `leq#` hR
+        then InBounds (# oR, (hR -# oR) #)
+        else OOB
 
 {- | Bounds-checks a slicing operation
-    takes (offset, length) pairs, slice first, then array
+
+    $1 - relative offset+length
+    $2 - current slice offset+length
+    returns the total index of resulting slice, or unit on OOB
 -}
-_slice :: Int# -> Int# -> Int# -> Int# -> Int#
-_slice d n o l =
-    if d `geq#` 0# && n `geq#` 0# && (d +# n) `leq#` l
-        then o +# d
-        else -1#
+_slice :: OffsetLength -> OffsetLength -> (# (##) | Int# #)
+_slice (# i, n #) (# j, m #)
+    | i `lt#` 0# || n `lt#` 0# || (i +# n) `gt#` m = (# (##) | #)
+    | otherwise                                    = (# | i +# j #)
 
 {- | tail-recursive for loop with foldl-operator
  Bounds given by low (inclusive) and high (exclusive) value

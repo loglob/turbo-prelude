@@ -36,37 +36,38 @@ fromBytes# bs s0 = let
 fromBytes :: (Prim a) => MutableByteArray s -> ST s (MutUSpan s a)
 fromBytes (MutableByteArray bs) = ST (fromBytes# bs)
 
+ptrEq :: MutableByteArray# s -> MutableByteArray# s -> Bool
+ptrEq xs ys = isTrue# (sameMutableByteArray# xs ys)
+
 instance Span (MutUSpan s a) where
     extends :: Int -> Int -> MutUSpan s a -> MutUSpan s a
-    extends (I# l) (I# r) (MutUSpan i n xs) = case _extends' l r i n of
-        !(# -1#, -1# #) -> error "Invalid extension"
-        !(# o, p #) -> MutUSpan o p xs
+    extends (I# l) (I# r) (MutUSpan i n xs) = case _extends' l r (# i, n #) of
+        !(# _ | #) -> error "Invalid extension"
+        !(# | (# o, k #) #) -> MutUSpan o k xs
     bounds :: MutUSpan s a -> MutUSpan s a -> Maybe (MutUSpan s a)
     bounds (MutUSpan i n xs) (MutUSpan j m ys) 
-        | isTrue# (sameMutableByteArray# xs ys) = case _bounds i n j m of
-            !(# -1#, -1# #) -> Nothing
-            (# o, p #) -> Just (MutUSpan o p xs)
+        | ptrEq xs ys = let !(# o, l #) = _bounds (# i, n #) (# j, m #) in Just (MutUSpan o l xs)
         | otherwise = Nothing
     isSliceOf :: MutUSpan s a -> MutUSpan s a -> Maybe Int
     isSliceOf (MutUSpan i n xs) (MutUSpan j m ys) 
-        | isTrue# (sameMutableByteArray# xs ys) = _isSliceOf i n j m
+        | ptrEq xs ys = _isSliceOf (# i, n #) (# j, m #)
         | otherwise = Nothing
     size :: MutUSpan s a -> Int
     size (MutUSpan _ n _) = I# n
     overlap :: MutUSpan s a -> MutUSpan s a -> Maybe (MutUSpan s a)
     overlap (MutUSpan i n xs) (MutUSpan j m ys) 
-        | isTrue# (sameMutableByteArray# xs ys) = case _overlap i n j m of
-            (# -1#, -1# #) -> Nothing
-            (# o, l #) -> Just (MutUSpan o l xs)
+        | ptrEq xs ys = case _overlap (# i, n #) (# j, m #) of
+            (# _ | #)          -> Nothing
+            (# | (# o, l #) #) -> Just (MutUSpan o l xs)
         | otherwise = Nothing
     ptrCmp :: MutUSpan s a -> MutUSpan s a -> Maybe Ordering
     ptrCmp (MutUSpan i _ xs) (MutUSpan j _ ys) 
-        | isTrue# (sameMutableByteArray# xs ys) = Just (cmp# i j)
+        | ptrEq xs ys = Just (cmp# i j)
         | otherwise = Nothing
     slice :: Int -> Int -> MutUSpan s a -> MutUSpan s a
-    slice (I# i) (I# n) (MutUSpan j m xs) = case _slice i n j m of
-        -1# -> error "invalid slice index"
-        o   -> MutUSpan o n xs
+    slice (I# i) (I# n) (MutUSpan j m xs) = case _slice (# i, n #) (# j, m #) of
+        (# _ | #) -> error "invalid slice index"
+        (# | o #) -> MutUSpan o n xs
 
 instance StateBasedSpan MutUSpan where
     baseSpanOffST :: MutUSpan x y -> ST x (MutUSpan x y, Int)

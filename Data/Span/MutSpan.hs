@@ -32,12 +32,12 @@ instance Span (MutSpan s a) where
 
     bounds :: MutSpan s a -> MutSpan s a -> Maybe (MutSpan s a)
     bounds (MutSpan i n xs) (MutSpan j m ys)
-        | samePtr xs ys = let !(# o, l #) = _bounds i n j m in Just (MutSpan o l xs)
+        | samePtr xs ys = let !(# o, l #) = _bounds (# i, n #) (# j, m #) in Just (MutSpan o l xs)
         | otherwise              = Nothing
 
     isSliceOf :: MutSpan s a -> MutSpan s a -> Maybe Int
     isSliceOf (MutSpan i n xs) (MutSpan j m ys)
-        | samePtr xs ys = _isSliceOf i n j m
+        | samePtr xs ys = _isSliceOf (# i, n #) (# j, m #)
         | otherwise              = Nothing
 
     size :: MutSpan s a -> Int
@@ -45,9 +45,9 @@ instance Span (MutSpan s a) where
 
     overlap :: MutSpan s a -> MutSpan s a -> Maybe (MutSpan s a)
     overlap (MutSpan i n xs) (MutSpan j m ys)
-        | samePtr xs ys = case _overlap i n j m of
-            (# -1#, -1# #) -> Nothing
-            (# o, l #)     -> Just (MutSpan o l xs)
+        | samePtr xs ys = case _overlap (# i, n #) (# j, m #) of
+            (# _ | #)          -> Nothing
+            (# | (# o, l #) #) -> Just (MutSpan o l xs)
         | otherwise              = Nothing
 
     ptrCmp :: MutSpan s a -> MutSpan s a -> Maybe Ordering
@@ -56,9 +56,9 @@ instance Span (MutSpan s a) where
         | otherwise     = Nothing
 
     slice :: Int -> Int -> MutSpan s a -> MutSpan s a
-    slice (I# i) (I# n) (MutSpan j m arr) = case _slice i n j m of
-        -1# -> error "Slice indices out of bounds"
-        o   -> MutSpan o n arr
+    slice (I# i) (I# n) (MutSpan j m arr) = case _slice (# i, n #) (# j, m #) of
+        (# _ | #) -> error "Slice indices out of bounds"
+        (# | o #) -> MutSpan o n arr
 
 instance StateBasedSpan MutSpan where
     baseSpanOffST (MutSpan o _ g) = ST \s0 -> let

@@ -15,42 +15,45 @@ import Turbo.Prelude hiding (for)
 capacity :: (Prim a) => Proxy a -> ByteArray# -> Int#
 capacity p bs = sizeofByteArray# bs `divInt#` sizeOfType# p
 
+ptrEq :: ByteArray# -> ByteArray# -> Bool
+ptrEq x y = isTrue# (sameByteArray# x y)
+
 -- looks almost exactly like the one for ArraySpan, but just different enough to not be generalizable further
 instance Span (USpan a) where
     bounds :: USpan a -> USpan a -> Maybe (USpan a)
-    bounds (USpan o n xs) (USpan p m ys) = case unsafePtrEquality# xs ys of
-        1# -> let !(# q, k #) = _bounds o n p m in Just $ USpan q k xs
-        _ -> Nothing
+    bounds (USpan i n xs) (USpan j m ys) 
+        | ptrEq xs ys = let !(# q, k #) = _bounds (# i, n #) (# j, m #) in Just (USpan q k xs)
+        | otherwise   = Nothing
 
     extends :: Int -> Int -> USpan a -> USpan a
-    extends (I# n) (I# m) (USpan o l arr) = case _extends n m o l (capacity (Proxy :: Proxy a) arr) of
-        (# -1#, _ #) -> error "extends indices out of range"
-        (# o', l' #) -> USpan o' l' arr
+    extends (I# l) (I# r) (USpan i n arr) = case _extends l r (# i, n #) (capacity (Proxy :: Proxy a) arr) of
+        (# _ | #)          -> error "extends indices out of range"
+        (# | (# o, l #) #) -> USpan o l arr
 
     isSliceOf :: USpan a -> USpan a -> Maybe Int
-    isSliceOf (USpan o n xs) (USpan p m ys) = case unsafePtrEquality# xs ys of
-        1# -> _isSliceOf o n p m
-        _ -> Nothing
+    isSliceOf (USpan i n xs) (USpan j m ys) 
+        | ptrEq xs ys = _isSliceOf (# i, n #) (# j, m #)
+        | otherwise   = Nothing
 
     size :: USpan a -> Int
     size (USpan _ n _) = I# n
 
     overlap :: USpan a -> USpan a -> Maybe (USpan a)
-    overlap (USpan o n xs) (USpan p m ys) = case unsafePtrEquality# xs ys of
-        1# -> case _overlap o n p m of
-            (# -1#, _ #) -> Nothing
-            (# oR, lR #) -> Just (USpan oR lR xs)
-        _ -> Nothing
+    overlap (USpan i n xs) (USpan j m ys) 
+        | ptrEq xs ys = case _overlap (# i, n #) (# j, m #) of
+            !(# _ | #) -> Nothing
+            !(# | (# o, l #) #) -> Just (USpan o l xs)
+        | otherwise   = Nothing
 
     ptrCmp :: USpan a -> USpan a -> Maybe Ordering
-    ptrCmp (USpan o _ xs) (USpan p _ ys) = case unsafePtrEquality# xs ys of
-        1# -> Just (cmp# o p)
-        _ -> Nothing
+    ptrCmp (USpan o _ xs) (USpan p _ ys) 
+        | ptrEq xs ys = Just (cmp# o p)
+        | otherwise   = Nothing
 
     slice :: Int -> Int -> USpan a -> USpan a
-    slice (I# d) (I# n) (USpan o l xs) = case _slice d n o l of
-        -1# -> error "slice index out of range"
-        oR -> USpan oR n xs
+    slice (I# i) (I# n) (USpan j m xs) = case _slice (# i, n #) (# j, m #) of
+        (# _ | #) -> error "slice index out of range"
+        (# | o #) -> USpan o n xs
 
 instance BasedSpan (USpan a) where
     baseSpanOff :: USpan a -> (USpan a, Int)

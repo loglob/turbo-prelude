@@ -35,34 +35,34 @@ instance Span (ArraySpan a) where
     extends (I# l) (I# r) (ArraySpan o n xs) = slice (I# (o -# l)) (I# (n +# r)) (baseSpan# xs)
 
     isSliceOf :: ArraySpan a -> ArraySpan a -> Maybe Int
-    isSliceOf (ArraySpan o l xs) (ArraySpan o' l' ys) = if samePtr xs ys then _isSliceOf o l o' l' else Nothing
+    isSliceOf (ArraySpan i n xs) (ArraySpan j m ys)
+        | samePtr xs ys = _isSliceOf (# i, n #) (# j, m #) 
+        | otherwise     = Nothing
 
     size :: ArraySpan a -> Int
     size (ArraySpan _ l _) = I# l
 
     overlap :: ArraySpan a -> ArraySpan a -> Maybe (ArraySpan a)
-    overlap (ArraySpan o l xs) (ArraySpan o' l' ys) =
-        if samePtr xs ys
-            then case _overlap o l o' l' of
-                (# -1#, _ #) -> Nothing
-                (# oR, lR #) -> Just (ArraySpan oR lR xs)
-            else Nothing
+    overlap (ArraySpan i n xs) (ArraySpan j m ys) 
+        | samePtr xs ys = case _overlap (# i, n #) (# j, m #) of
+            (# _ | #) -> Nothing
+            (# | (# oR, lR #) #) -> Just (ArraySpan oR lR xs)
+        | otherwise     = Nothing
 
     bounds :: ArraySpan a -> ArraySpan a -> Maybe (ArraySpan a)
-    bounds (ArraySpan o n xs) (ArraySpan p m ys) =
-        if samePtr xs ys
-            then let !(# q, k #) = _bounds o n p m in Just (ArraySpan q k xs)
-            else Nothing
+    bounds (ArraySpan i n xs) (ArraySpan j m ys) 
+        | samePtr xs ys = let !(# q, k #) = _bounds (# i, n #) (# j, m #) in Just (ArraySpan q k xs)
+        | otherwise     = Nothing
 
     ptrCmp :: ArraySpan a -> ArraySpan a -> Maybe Ordering
-    ptrCmp (ArraySpan o _ xs) (ArraySpan p _ ys) = case samePtr xs ys of
-        True -> Just (cmp# o p)
-        False -> Nothing
+    ptrCmp (ArraySpan o _ xs) (ArraySpan p _ ys) 
+        | samePtr xs ys = Just (cmp# o p)
+        | otherwise     = Nothing
 
     slice :: Int -> Int -> ArraySpan a -> ArraySpan a
-    slice (I# d) (I# n) (ArraySpan o l xs) = case _slice d n o l of
-        -1# -> error "slice indices out of bounds"
-        oR -> ArraySpan oR n xs
+    slice (I# i) (I# n) (ArraySpan j m xs) = case _slice (# i, n #) (# j, m #) of
+        (# _ | #) -> error "slice indices out of bounds"
+        (# | o #) -> ArraySpan o n xs
 
 instance BasedSpan (ArraySpan a) where
     baseSpanOff (ArraySpan o _ g) = (baseSpan# g, I# o)

@@ -1,5 +1,15 @@
 -- | Implements large (eager) Text with efficient indexing
-module Data.LargeText (LargeText (), Position (..), charAtPos, fromText, getLine, indexPos, posOfChar, toText, uncons, unconsPos) where
+module Data.LargeText (
+    LargeText (), 
+    Position (..),
+    charAtPos,
+    fromText,
+    getLine,
+    indexPos,
+    posOfChar,
+    toText,
+    uncons, unconsPos
+ ) where
 
 import Data.Primitive (ByteArray (..))
 import Data.Span.Internal
@@ -112,11 +122,11 @@ finalChunk txt =
      in chunkFromByte txt (byteOffset m)
 
 -- | Checks if two large texts use the same pointers
-samePtrs :: LargeText -> LargeText -> Bool
-samePtrs a b = isTrue# (unsafePtrEquality# (bytes a) (bytes b)) && isTrue# (unsafePtrEquality# (markers a) (markers b))
+samePtr :: LargeText -> LargeText -> Bool
+samePtr a b = isTrue# (unsafePtrEquality# (bytes a) (bytes b)) && isTrue# (unsafePtrEquality# (markers a) (markers b))
 
-app :: (Int# -> Int# -> (a :: TYPE rep)) -> LargeText -> a
-app f txt = f (charOffset txt) (charCount txt)
+app :: (OffsetLength -> (a :: TYPE rep)) -> LargeText -> a
+app f txt = f (# charOffset txt, charCount txt #)
 
 -- * Exposed Interfaces
 
@@ -219,7 +229,7 @@ getLine txt ln =
 instance Span LargeText where
     bounds :: LargeText -> LargeText -> Maybe LargeText
     bounds a b =
-        if samePtrs a b
+        if samePtr a b
             then let !(# o, l #) = _bounds `app` a `app` b in Just $ a{charOffset = o, charCount = l}
             else Nothing
 
@@ -239,29 +249,29 @@ instance Span LargeText where
                     EQ -> y `eq#` 0# || T.measureOff (I# y) (finalChunk txt) > 0
 
     isSliceOf :: LargeText -> LargeText -> Maybe Int
-    isSliceOf a b = if samePtrs a b then _isSliceOf `app` a `app` b else Nothing
+    isSliceOf a b = if samePtr a b then _isSliceOf `app` a `app` b else Nothing
 
     size :: LargeText -> Int
     size txt = I# (charCount txt)
 
     overlap :: LargeText -> LargeText -> Maybe LargeText
     overlap a b =
-        if samePtrs a b
+        if samePtr a b
             then case _overlap `app` a `app` b of
-                (# -1#, _ #) -> Nothing
-                (# o, l #) -> Just (a{charOffset = o, charCount = l})
+                (# _ | #)          -> Nothing
+                (# | (# o, l #) #) -> Just (a{charOffset = o, charCount = l})
             else Nothing
 
     ptrCmp :: LargeText -> LargeText -> Maybe Ordering
     ptrCmp a b =
-        if samePtrs a b
+        if samePtr a b
             then Just (cmp# (charOffset a) (charOffset b))
             else Nothing
 
     slice :: Int -> Int -> LargeText -> LargeText
-    slice (I# o) (I# n) txt = case _slice o n `app` txt of
-        -1# -> error "Slice indices out of bound"
-        p -> txt{charOffset = p, charCount = n}
+    slice (I# o) (I# n) txt = case _slice (# o, n #) `app` txt of
+        (# _ | #) -> error "Slice indices out of bound"
+        (# | p #) -> txt{charOffset = p, charCount = n}
 
 instance BasedSpan LargeText where
     baseSpanOff :: LargeText -> (LargeText, Int)
