@@ -161,12 +161,18 @@ _bounds o n p m =
         hi = max# (o +# n) (p +# m)
      in (# lo, hi -# lo #)
 
+
+-- | Weaker form of `_extends` without total capacity information
+_extends' :: Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
+_extends' l r i n
+    | l `lt#` 0# || r `lt#` 0# || l `gt#` i = (# -1#, -1# #) 
+    | otherwise                             = (# i -# l, n +# l +# r #)
+
 -- | Generic helper for `extends`. Takes left extension, right extension, cur offset, cur length, total capacity
 _extends :: Int# -> Int# -> Int# -> Int# -> Int# -> (# Int#, Int# #)
-_extends n m o l z =
-    if n `geq#` 0# && m `geq#` 0# && n `leq#` o && (n +# m +# o +# l) `leq#` z
-        then (# o -# n, l +# n +# m #)
-        else (# -1#, -1# #)
+_extends l r i n z 
+    | (l +# r +# i +# n) `gt#` z = (# -1#, -1# #)
+    | otherwise                = _extends' l r i n
 
 -- | Generic helper for `isSliceOf` that takes (offset, length) pairs
 _isSliceOf :: Int# -> Int# -> Int# -> Int# -> Maybe Int
