@@ -5,6 +5,7 @@ module Turbo.Internal.Classes where
 import Control.Lens qualified as L
 import Control.Monad.State (MonadState (..), execState)
 import Turbo.RootPrelude
+import GHC.Err (error)
 
 -- * uncons
 
@@ -44,6 +45,12 @@ class AtConst m where
 
     -- | Resolves a possibly absent index
     (@) :: m -> Index m -> Maybe (IxValue m)
+
+infixl 9 @!!
+(@!!) :: (AtConst m) => m -> Index m -> IxValue m
+(@!!) xs i = case xs @ i of
+    Just y -> y
+    Nothing -> error "Index out of range"
 
 instance {-# OVERLAPPABLE #-} (Ixed m) => AtConst m where
     x @ i = execState ((ix i) (\y -> put (Just y) >> return y) x) Nothing

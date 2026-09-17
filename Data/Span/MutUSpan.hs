@@ -1,7 +1,10 @@
 module Data.Span.MutUSpan (
     MutUSpan(),
+    fromBytes, fromBytes#,
     memcpy, memcpy#,
-    fromBytes, fromBytes#
+    read, read#,
+    write, write#,
+    populate, populate#,
 ) where
 
 import Data.Span.Internal
@@ -10,31 +13,6 @@ import GHC.Exts (copyMutableByteArray#, sameMutableByteArray#)
 import Data.Primitive (Prim(..), MutableByteArray(..))
 import Turbo.Operators ((<&))
 import GHC.Err (error)
-
-memcpy :: MutUSpan s a -> MutUSpan s a -> ST s Int 
-memcpy t f = ST \s -> let !(# s', z #) = memcpy# t f s in (# s', I# z #)
-
-memcpy# :: MutUSpan s a -> MutUSpan s a -> State# s -> (# State# s, Int# #)
-memcpy# (MutUSpan i n dst) (MutUSpan j m src) s0 = let
-    !z = min# n m
-    !s1 = copyMutableByteArray# src j dst i z s0
- in
-    (# s1, z #)
-
-capacity# :: (Prim a) => Proxy a -> MutableByteArray# s -> State# s -> (# State# s, Int# #)
-capacity# p bs s0 = let
-    !(# s1, z #) = getSizeofMutableByteArray# bs s0
- in
-    (# s1, z `divInt#` sizeOfType# p #)
-
-fromBytes# :: forall s a. (Prim a) => MutableByteArray# s -> State# s -> (# State# s, MutUSpan s a #)
-fromBytes# bs s0 = let
-    !(# s1, z #) = capacity# (Proxy :: Proxy a) bs s0
- in
-    (# s1, MutUSpan 0# z bs #)
-
-fromBytes :: (Prim a) => MutableByteArray s -> ST s (MutUSpan s a)
-fromBytes (MutableByteArray bs) = ST (fromBytes# bs)
 
 ptrEq :: MutableByteArray# s -> MutableByteArray# s -> Bool
 ptrEq xs ys = isTrue# (sameMutableByteArray# xs ys)
@@ -72,3 +50,52 @@ instance Span (MutUSpan s a) where
 instance StateBasedSpan MutUSpan where
     baseSpanOffST :: MutUSpan x y -> ST x (MutUSpan x y, Int)
     baseSpanOffST (MutUSpan o _ xs) = ST (fromBytes# xs) <& (I# o)
+
+instance MutableSpan MutUSpan where
+    memmove# :: MutUSpan s a -> MutUSpan s a -> State# s -> (# State# s, Int# #)
+    memmove# (MutUSpan i n dst) (MutUSpan j m src) s0 = let
+        !z = min# n m
+        !s1 = copyMutableByteArray# src j dst i z s0
+     in
+        (# s1, z #)
+
+    read# :: MutUSpan s a -> Int# -> State# s -> (# State# s, a #)
+    read# (MutUSpan i n xs) j s
+        | j `lt#` 0# || j `geq#` n = error "Index out of bounds"
+        | otherwise               = readByteArray# xs (i +# j) s
+
+    write# :: MutUSpan s a -> Int# -> a -> State# s -> State# s
+    write# (MutUSpan i n xs) j x s
+        | j `lt#` 0# || j `geq#` n = error "Index out of bounds"
+        | otherwise               = writeByteArray# xs (i +# j) x s
+
+    populate# :: MutUSpan s a -> (Int# -> State# s -> (# State# s, a #)) -> State# s -> State# s
+    populate# xs@(MutUSpan _ n _) get = loop 0#
+     where
+        loop o s | o `geq#` n = s
+        loop o s = let
+            !(# s1, x #) = get o s
+            !s2 = write# xs o x s1
+         in
+            loop (inc# o) s2
+    
+    copy :: MutUSpan x y -> ST x (MutUSpan x y)
+    copy = _
+
+    malloc :: Int -> y -> ST x (MutUSpan x y)
+    malloc (I# n) y = _
+
+capacity# :: (Prim a) => Proxy a -> MutableByteArray# s -> State# s -> (# State# s, Int# #)
+capacity# p bs s0 = let
+    !(# s1, z #) = getSizeofMutableByteArray# bs s0
+ in
+    (# s1, z `divInt#` sizeOfType# p #)
+
+fromBytes# :: forall s a. (Prim a) => MutableByteArray# s -> State# s -> (# State# s, MutUSpan s a #)
+fromBytes# bs s0 = let
+    !(# s1, z #) = capacity# (Proxy :: Proxy a) bs s0
+ in
+    (# s1, MutUSpan 0# z bs #)
+
+fromBytes :: (Prim a) => MutableByteArray s -> ST s (MutUSpan s a)
+fromBytes (MutableByteArray bs) = ST (fromBytes# bs)

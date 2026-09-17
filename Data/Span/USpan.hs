@@ -7,7 +7,7 @@ module Data.Internal.USpan (
 
 import Data.Foldable qualified
 import Data.Primitive
-import Data.Span.Internal
+import Data.Span.Internal hiding (memcpy, memcpy#)
 import GHC.Base
 import Turbo.Internal.Classes
 import Turbo.Prelude hiding (for)
@@ -126,11 +126,6 @@ fromList = \xs -> runST (ST (f xs))
         let s' = writeByteArray# arr l x s
          in copy s' c arr (inc# l) xs
 
--- | Copies from an unboxed span into a mutable unboxed span
---   If spans have different size, only copies until either the destination is filled or the source is exhausted.
---   returns the amount of bytes copied
-memcpy :: MutUSpan s a -> USpan a -> ST s Int
-memcpy t f = ST \s -> let !(# s', z #) = memcpy# t f s in (# s', I# z #)
 
 memcpy# :: MutUSpan s a -> USpan a -> State# s -> (# State# s, Int# #)
 memcpy# (MutUSpan i n dest) (USpan j m src) s0 = let
@@ -138,3 +133,9 @@ memcpy# (MutUSpan i n dest) (USpan j m src) s0 = let
     !s1 = copyByteArray# src j dest i z s0
  in
     (# s1, z #)
+
+-- | Copies from an unboxed span into a mutable unboxed span
+--   If spans have different size, only copies until either the destination is filled or the source is exhausted.
+--   returns the amount of bytes copied
+memcpy :: MutUSpan s a -> USpan a -> ST s Int
+memcpy t f = ST \s -> let !(# s', z #) = memcpy# t f s in (# s', I# z #)

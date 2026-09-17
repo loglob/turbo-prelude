@@ -15,43 +15,43 @@ instance Span (V.Vector v) where
     bounds :: V.Vector v -> V.Vector v -> Maybe (V.Vector v)
     bounds u v =
         let
-            !(Array a, I# o, I# n) = V.toArraySlice u
-            !(Array b, I# p, I# m) = V.toArraySlice v
+            !(Array a, I# i, I# n) = V.toArraySlice u
+            !(Array b, I# j, I# m) = V.toArraySlice v
          in
             case unsafePtrEquality# a b of
-                1# -> let !(# q, k #) = _bounds o n p m in Just $ V.unsafeFromArraySlice (Array a) (I# q) (I# k)
+                1# -> let !(# q, k #) = _bounds (# i, n #) (# j, m #) in Just $ V.unsafeFromArraySlice (Array a) (I# q) (I# k)
                 _ -> Nothing
 
     extends :: Int -> Int -> V.Vector v -> V.Vector v
-    extends (I# n) (I# m) v =
+    extends (I# l) (I# r) v =
         let
-            !(a, I# o, I# l) = V.toArraySlice v
+            !(a, I# i, I# n) = V.toArraySlice v
             !(I# z) = length a
          in
-            case _extends n m o l z of
-                (# -1#, _ #) -> error "extends indices out of range"
-                (# p, k #) -> V.unsafeFromArraySlice a (I# p) (I# k)
+            case _extends l r (# i, n #) z of
+                (# _ | #)          -> error "extends indices out of range"
+                (# | (# p, k #) #) -> V.unsafeFromArraySlice a (I# p) (I# k)
 
     isSliceOf :: V.Vector v -> V.Vector v -> Maybe Int
     isSliceOf u v =
         let
-            !(Array a, I# o, I# n) = V.toArraySlice u
-            !(Array b, I# p, I# m) = V.toArraySlice v
+            !(Array a, I# i, I# n) = V.toArraySlice u
+            !(Array b, I# j, I# m) = V.toArraySlice v
          in
             case unsafePtrEquality# a b of
-                1# -> _isSliceOf o n p m
+                1# -> _isSliceOf (# i, n #) (# j, m #)
                 _ -> Nothing
 
     overlap :: V.Vector v -> V.Vector v -> Maybe (V.Vector v)
     overlap u v =
         let
-            !(Array a, I# o, I# n) = V.toArraySlice u
-            !(Array b, I# p, I# m) = V.toArraySlice v
+            !(Array a, I# i, I# n) = V.toArraySlice u
+            !(Array b, I# j, I# m) = V.toArraySlice v
          in
             case unsafePtrEquality# a b of
-                1# -> case _overlap o n p m of
-                    (# -1#, _ #) -> Nothing
-                    (# q, k #) -> Just $ V.unsafeFromArraySlice (Array a) (I# q) (I# k)
+                1# -> case _overlap (# i, n #) (# j, m #) of
+                    (# _ | #)          -> Nothing
+                    (# | (# q, k #) #) -> Just $ V.unsafeFromArraySlice (Array a) (I# q) (I# k)
                 _ -> Nothing
 
     ptrCmp :: V.Vector v -> V.Vector v -> Maybe Ordering
@@ -92,8 +92,8 @@ measureOff' n t = case T.measureOff n t of
 -- | Instance for Text indexed in chars
 instance Span Text where
     bounds :: Text -> Text -> Maybe Text
-    bounds (Text (ByteArray xs) (I# o) (I# n)) (Text (ByteArray ys) (I# p) (I# m)) = case unsafePtrEquality# xs ys of
-        1# -> let !(# q, k #) = _bounds o n p m in Just $ Text (ByteArray xs) (I# q) (I# k)
+    bounds (Text (ByteArray xs) (I# i) (I# n)) (Text (ByteArray ys) (I# j) (I# m)) = case unsafePtrEquality# xs ys of
+        1# -> let !(# q, k #) = _bounds (# i, n #) (# j, m #) in Just $ Text (ByteArray xs) (I# q) (I# k)
         _ -> Nothing
 
     extends :: Int -> Int -> Text -> Text
@@ -161,3 +161,6 @@ instance BasedSpan Text where
             charOff = T.length (Text bArr 0 byteOff)
          in
             (base, charOff)
+
+instance AtConstRev Text Char where
+    (@~) = atConstRev

@@ -5,6 +5,7 @@ import GHC.Base
 import Turbo.Internal.Classes
 import Turbo.Operators ((?!))
 import Turbo.RootPrelude
+import Turbo.Extra (doST', doST)
 
 {- | Generic wrapper for either primitive array type.
     Differences should be negligible because they are immutable.
@@ -95,6 +96,52 @@ class Span s where
 
     {-# MINIMAL (extends, bounds, isSliceOf, size, overlap, ptrCmp, (slice | (trims, takes))) #-}
 
+
+class (forall x y. Span (s x y)) => MutableSpan s where
+    read# :: s x y -> Int# -> State# x -> (# State# x, y #)
+    read# xs i = doST (read xs (I# i))
+
+    read :: s x y -> Int -> ST x y
+    read xs (I# i) = ST (read# xs i)
+
+    write# :: s x y -> Int# -> y -> State# x -> State# x
+    write# xs i y = doST' (write xs (I# i) y)
+
+    write :: s x y -> Int -> y -> ST x ()
+    write xs (I# i) y = ST \s -> (# write# xs i y s, () #)
+
+    populate# :: s x y -> (Int# -> State# x -> (# State# x, y #)) -> State# x -> State# x
+    populate# xs get = loop 0#
+     where
+        !(I# n) = size xs
+        loop o s | o `geq#` n = s
+        loop o s = let
+            !(# s1, x #) = get o s
+            !s2 = write# xs o x s1
+         in
+            loop (inc# o) s2
+
+    populate :: s x y -> (Int -> ST x y) -> ST x ()
+    populate xs f = ST \s -> (# populate# xs (\i s' -> let !(ST g) = f (I# i) in g s') s, () #)
+
+    memmove# :: s x y -> s x y -> State# x -> (# State# x, Int# #)
+    memmove# xs ys s = let !(# s', I# n #) = doST (memmove xs ys) s in (# s', n #)
+
+    memmove :: s x y -> s x y -> ST x Int 
+    memmove t f = ST \s -> let !(# s', z #) = memmove# t f s in (# s', I# z #)
+
+    -- | Creates an independent copy of the current state of a mutable span. Only copies the addressable region of the span, not its entire underlying storage.
+    copy :: s x y -> ST x (s x y)
+
+    malloc# :: Int# -> y -> State# x -> (# State# x, s x y #)
+    malloc# n y = doST (malloc (I# n) y)
+
+    malloc :: Int -> y -> ST x (s x y)
+    malloc (I# n) y = ST (malloc# n y)
+
+    {-# MINIMAL ((read | read#), (write | write#), (populate | populate#), (memmove | memmove#), copy, (malloc | malloc#)) #-}
+
+
 -- *** BasedSpan
 
 -- | A span that can be traced back to the baseSpan that contains it
@@ -121,6 +168,30 @@ class (forall x y. Span (s x y)) => StateBasedSpan s where
     -- | `baseSpanOff` inside `ST`
     baseSpanOffST :: s x y -> ST x (s x y, Int)
 
+-- *** Memcpy
+
+-- | Indicates that two span types (one mutable, one not) have compatible memory layout that allows for direct copying
+class (MutableSpan dst, forall a. Span (src a)) => Copyable dst src where
+    memcpy# :: dst s a -> src a -> State# s -> State# s
+    memcpy# to fr = doST' (memcpy to fr)
+
+    -- | Copies data from an immutable span into a mutable span
+    memcpy :: dst s a -> src a -> ST s ()
+    memcpy to fr = ST \s -> (# memcpy# to fr s, () #) 
+
+    -- | Copies the current contents of a mutable span into an equivalent immutable span
+    freezeCopy :: dst s a -> ST s (src a)
+
+    -- | Creates a mutable independent copy of an immutable span
+    mutableCopy :: src a -> ST s (dst s a)
+    mutableCopy src = do
+        mut <- malloc (size src) undefined
+        memcpy mut src
+
+        return mut
+
+
+    {-# MINIMAL ((memcpy | memcpy#), freezeCopy) #-}
 
 -- * Util methods
 

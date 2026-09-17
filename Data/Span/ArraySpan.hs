@@ -1,11 +1,8 @@
 module Data.Span.ArraySpan (
     ArraySpan (..),
-    fromArray,
-    fromSArray,
-    fromArray#,
-    fromSArray#,
+    fromArray,fromArray#,
     fromList,
-    GenArray#
+    fromSArray, fromSArray#,
 ) where
 
 import Data.Foldable qualified
@@ -26,13 +23,13 @@ samePtr (# x | #) (# y | #) = isTrue# (unsafePtrEquality# x y)
 samePtr (# | x #) (# | y #) = isTrue# (unsafePtrEquality# x y)
 samePtr _ _ = False
 
-baseSpan# :: GenArray# a -> ArraySpan a
-baseSpan# (# a | #) = fromArray# a
-baseSpan# (# | a #) = fromSArray# a
+fromGArray# :: GenArray# a -> ArraySpan a
+fromGArray# (# a | #) = fromArray# a
+fromGArray# (# | a #) = fromSArray# a
 
 instance Span (ArraySpan a) where
     extends :: Int -> Int -> ArraySpan a -> ArraySpan a
-    extends (I# l) (I# r) (ArraySpan o n xs) = slice (I# (o -# l)) (I# (n +# r)) (baseSpan# xs)
+    extends (I# l) (I# r) (ArraySpan o n xs) = slice (I# (o -# l)) (I# (n +# r)) (fromGArray# xs)
 
     isSliceOf :: ArraySpan a -> ArraySpan a -> Maybe Int
     isSliceOf (ArraySpan i n xs) (ArraySpan j m ys)
@@ -65,7 +62,7 @@ instance Span (ArraySpan a) where
         (# | o #) -> ArraySpan o n xs
 
 instance BasedSpan (ArraySpan a) where
-    baseSpanOff (ArraySpan o _ g) = (baseSpan# g, I# o)
+    baseSpanOff (ArraySpan o _ g) = (fromGArray# g, I# o)
 
 type instance IxValue (ArraySpan a) = a
 
