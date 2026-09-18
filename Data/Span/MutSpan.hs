@@ -8,10 +8,10 @@ module Data.Span.MutSpan (
 
 import Data.Span.Internal
 import GHC.Err (undefined)
-import GHC.Exts (copySmallMutableArray#, copyMutableArray#, sameMutableArray#, sameSmallMutableArray#, copyArray#, copySmallArray#)
+import GHC.Exts (copySmallMutableArray#, copyMutableArray#, sameMutableArray#, sameSmallMutableArray#, copyArray#, copySmallArray#, freezeArray#, freezeSmallArray#)
 import Turbo.RootPrelude
 import GHC.Base (error)
-import Data.Span.ArraySpan ()
+import qualified Data.Span.ArraySpan as A
 import Turbo.Internal.Classes
 import Turbo.Extra (st')
 
@@ -140,5 +140,13 @@ instance Copyable MutSpan ArraySpan where
         _ -> populate (MutSpan i z dst) \k -> return (r @!! k)
 
     freezeCopy :: MutSpan s a -> ST s (ArraySpan a)
-    freezeCopy = _
+    freezeCopy (MutSpan i n g) = ST \s0 -> case g of
+        (# a | #) -> let
+            !(# s1, xs #) = freezeArray# a i n s0
+         in
+            (# s1, A.fromArray# xs #)
+        (# | a #) -> let
+            !(# s1, xs #) = freezeSmallArray# a i n s0
+         in
+            (# s1, A.fromSArray# xs #)
 

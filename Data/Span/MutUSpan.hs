@@ -9,7 +9,7 @@ module Data.Span.MutUSpan (
 
 import Data.Span.Internal
 import Turbo.RootPrelude
-import GHC.Exts (copyMutableByteArray#, sameMutableByteArray#)
+import GHC.Exts (copyMutableByteArray#, sameMutableByteArray#, copyByteArray#, newPinnedByteArray#)
 import Data.Primitive (Prim(..), MutableByteArray(..))
 import Turbo.Operators ((<&))
 import GHC.Err (error)
@@ -80,10 +80,24 @@ instance MutableSpan MutUSpan where
             loop (inc# o) s2
     
     copy :: MutUSpan x y -> ST x (MutUSpan x y)
-    copy = _
+    copy src@(MutUSpan _ _ _) = do
+        tmp <- malloc (size src)
+        _ <- memmove tmp src
+        
+        return tmp
 
-    malloc :: Int -> y -> ST x (MutUSpan x y)
-    malloc (I# n) y = _
+    calloc :: Int -> y -> ST x (MutUSpan x y)
+    calloc n y = do
+        buf <- malloc n
+        populate buf \_ -> return y
+        
+        return buf
+
+malloc# :: Prim a => Int -> State# s -> (# State# s, MutUSpan s a #)
+malloc# = _
+
+malloc :: Prim a => Int -> ST s (MutUSpan s a)
+malloc = _
 
 capacity# :: (Prim a) => Proxy a -> MutableByteArray# s -> State# s -> (# State# s, Int# #)
 capacity# p bs s0 = let

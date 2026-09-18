@@ -132,14 +132,19 @@ class (forall x y. Span (s x y)) => MutableSpan s where
 
     -- | Creates an independent copy of the current state of a mutable span. Only copies the addressable region of the span, not its entire underlying storage.
     copy :: s x y -> ST x (s x y)
+    copy src = do
+        tmp <- calloc (size src) undefined
+        _ <- memmove tmp src
 
-    malloc# :: Int# -> y -> State# x -> (# State# x, s x y #)
-    malloc# n y = doST (malloc (I# n) y)
+        return tmp
 
-    malloc :: Int -> y -> ST x (s x y)
-    malloc (I# n) y = ST (malloc# n y)
+    calloc# :: Int# -> y -> State# x -> (# State# x, s x y #)
+    calloc# n y = doST (calloc (I# n) y)
 
-    {-# MINIMAL ((read | read#), (write | write#), (populate | populate#), (memmove | memmove#), copy, (malloc | malloc#)) #-}
+    calloc :: Int -> y -> ST x (s x y)
+    calloc (I# n) y = ST (calloc# n y)
+
+    {-# MINIMAL ((read | read#), (write | write#), (memmove | memmove#), copy, (calloc | calloc#)) #-}
 
 
 -- *** BasedSpan
@@ -185,7 +190,7 @@ class (MutableSpan dst, forall a. Span (src a)) => Copyable dst src where
     -- | Creates a mutable independent copy of an immutable span
     mutableCopy :: src a -> ST s (dst s a)
     mutableCopy src = do
-        mut <- malloc (size src) undefined
+        mut <- calloc (size src) undefined
         memcpy mut src
 
         return mut
