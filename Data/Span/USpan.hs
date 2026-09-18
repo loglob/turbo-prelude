@@ -1,4 +1,4 @@
-module Data.Internal.USpan (
+module Data.Span.USpan (
     USpan (),
     fromBytes, fromBytes#,
     fromList,

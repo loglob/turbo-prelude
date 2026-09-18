@@ -4,7 +4,7 @@ import GHC.Base
 import Turbo.Internal.Classes
 import Turbo.Operators ((?!))
 import Turbo.RootPrelude
-import Turbo.Extra (doST', doST)
+import Turbo.Extra (execST', execST)
 
 {- | Generic wrapper for either primitive array type.
     Differences should be negligible because they are immutable.
@@ -98,7 +98,7 @@ class Span span where
 -- | A span that may be mutated in-place
 class Span span => MutableSpan span s a | span -> s, span -> a where
     read# :: span -> Int# -> State# s -> (# State# s, a #)
-    read# xs i = doST (read xs (I# i))
+    read# xs i = execST (read xs (I# i))
 
     -- | Reads from the span at the given index
     --
@@ -107,7 +107,7 @@ class Span span => MutableSpan span s a | span -> s, span -> a where
     read xs (I# i) = ST (read# xs i)
 
     write# :: span -> Int# -> a -> State# s -> State# s
-    write# xs i a = doST' (write xs (I# i) a)
+    write# xs i a = execST' (write xs (I# i) a)
 
     -- | Writes to the span at given index
     --
@@ -131,7 +131,7 @@ class Span span => MutableSpan span s a | span -> s, span -> a where
     populate xs f = ST \s -> (# populate# xs (\i s' -> let !(ST g) = f (I# i) in g s') s, () #)
 
     memmove# :: span -> span -> State# s -> (# State# s, Int# #)
-    memmove# xs ys s = let !(# s', I# n #) = doST (memmove xs ys) s in (# s', n #)
+    memmove# xs ys s = let !(# s', I# n #) = execST (memmove xs ys) s in (# s', n #)
 
     -- | Copies from one span to another, or within the same span.
     --   Safe for overlapping regions of the same span.
@@ -158,7 +158,7 @@ class Span span => MutableSpan span s a | span -> s, span -> a where
         (# s2, buf #)
 
     malloc# :: Int# -> State# s -> (# State# s, span #)
-    malloc# n = doST (malloc (I# n)) 
+    malloc# n = execST (malloc (I# n)) 
 
     -- | Creates a new mutable span with the given size
     --   Does not initialize the contained memory (or sets it to undefined)
@@ -203,7 +203,7 @@ class Span span => BasedSpan span where
 -- | Indicates that two span types (one mutable, one not) have compatible memory layout that allows for direct copying
 class (MutableSpan dst s a, Span src) => Copyable dst s a src | dst -> src, dst -> s, dst -> a, src -> a where
     memcpy# :: dst -> src -> State# s -> State# s
-    memcpy# to fr = doST' (memcpy to fr)
+    memcpy# to fr = execST' (memcpy to fr)
 
     -- | Copies data from an immutable span into a mutable span
     memcpy :: dst -> src -> ST s ()

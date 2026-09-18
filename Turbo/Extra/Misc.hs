@@ -75,11 +75,11 @@ minimumBy f xs = foldr g Nothing xs
 sumBy :: (Foldable f, Num n) => (a -> n) -> f a -> n
 sumBy f = foldl' (\x y -> x + f y) 0
 
-doST :: ST s a -> State# s -> (# State# s, a #)
-doST !(ST f) s = f s
+execST :: ST s a -> State# s -> (# State# s, a #)
+execST !(ST f) s = f s
 
-doST' :: ST s () -> State# s -> State# s
-doST' !(ST f) s = let !(# s', () #) = f s in s'
+execST' :: ST s () -> State# s -> State# s
+execST' !(ST f) s = let !(# s', () #) = f s in s'
 
 st' :: (State# s -> State# s) -> ST s ()
 st' f = ST \s -> (# f s, () #)
