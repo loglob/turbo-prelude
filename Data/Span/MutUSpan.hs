@@ -74,34 +74,16 @@ instance Prim a => MutableSpan (MutUSpan s a) s a where
             !s2 = write# xs o x s1
          in
             loop (inc# o) s2
-    
-    copy :: MutUSpan s a -> ST s (MutUSpan s a)
-    copy src@(MutUSpan _ _ _) = do
-        tmp <- malloc (size src)
-        _ <- memmove tmp src
-        
-        return tmp
 
-    calloc :: Int -> a -> ST s (MutUSpan s a)
-    calloc n a = do
-        buf <- malloc n
-        populate buf \_ -> return a
-        
-        return buf
-    
     baseSpanOffST :: MutUSpan s a -> ST s (MutUSpan s a, Int)
     baseSpanOffST (MutUSpan o _ xs) = ST (fromBytes# xs) <& (I# o)
 
-
-malloc# :: forall s a. Prim a => Int# -> State# s -> (# State# s, MutUSpan s a #)
-malloc# n s0 = let
-    !z = n *# sizeOfType# (Proxy @a)
-    !(# s1, buf #) = newByteArray# z s0 
- in
-    (# s1, MutUSpan 0# n buf #)
-
-malloc :: Prim a => Int -> ST s (MutUSpan s a)
-malloc (I# n) = ST (malloc# n)
+    malloc# :: Int# -> State# s -> (# State# s, MutUSpan s a #)
+    malloc# n s0 = let
+        !z = n *# sizeOfType# (Proxy @a)
+        !(# s1, buf #) = newByteArray# z s0 
+     in
+        (# s1, MutUSpan 0# n buf #)
 
 capacity# :: (Prim a) => Proxy a -> MutableByteArray# s -> State# s -> (# State# s, Int# #)
 capacity# p bs s0 = let
@@ -111,7 +93,7 @@ capacity# p bs s0 = let
 
 fromBytes# :: forall s a. (Prim a) => MutableByteArray# s -> State# s -> (# State# s, MutUSpan s a #)
 fromBytes# bs s0 = let
-    !(# s1, z #) = capacity# (Proxy :: Proxy a) bs s0
+    !(# s1, z #) = capacity# (Proxy @a) bs s0
  in
     (# s1, MutUSpan 0# z bs #)
 

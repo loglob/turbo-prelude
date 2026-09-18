@@ -142,15 +142,32 @@ class Span span => MutableSpan span s a | span -> s, span -> a where
     --   Only copies the addressable region of the span, not its entire underlying storage.
     copy :: span -> ST s span
     copy src = do
-        tmp <- calloc (size src) undefined
+        tmp <- malloc (size src)
         _ <- memmove tmp src
 
         return tmp
 
-    calloc# :: Int# -> a -> State# s -> (# State# s, span #)
-    calloc# n a = doST (calloc (I# n) a)
+    -- malloc and calloc are implemented as a big circle so that any one can be used to implement all
+    -- however, if the underlying primitive is a calloc, calloc# should be preferred over calloc for performance
 
-    -- Creates a new mutable span with the given size, filled with the given default value.
+    calloc# :: Int# -> a -> State# s -> (# State# s, span #)
+    calloc# n a s0 = let
+        !(# s1, buf #) = malloc# n s0
+        !s2 = populate# buf (\_ s -> (# s, a #)) s1
+     in
+        (# s2, buf #)
+
+    malloc# :: Int# -> State# s -> (# State# s, span #)
+    malloc# n = doST (malloc (I# n)) 
+
+    -- | Creates a new mutable span with the given size
+    --   Does not initialize the contained memory (or sets it to undefined)
+    malloc :: Int -> ST s span
+    malloc n = calloc n undefined
+
+    -- | Creates a new mutable span with the given size, filled with the given default value.
+    --
+    -- To implement MutableSpan with a calloc-like primitive, also implement calloc# instead for better performance
     calloc :: Int -> a -> ST s span
     calloc (I# n) a = ST (calloc# n a)
 
@@ -161,7 +178,7 @@ class Span span => MutableSpan span s a | span -> s, span -> a where
     -- | `baseSpanOff` inside `ST`
     baseSpanOffST :: span -> ST s (span, Int)
 
-    {-# MINIMAL ((read | read#), (write | write#), (memmove | memmove#), copy, (calloc | calloc#), baseSpanOffST) #-}
+    {-# MINIMAL ((read | read#), (write | write#), (memmove | memmove#), (calloc# | malloc | malloc# | calloc), baseSpanOffST) #-}
 
 
 -- *** BasedSpan

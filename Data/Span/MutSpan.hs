@@ -114,8 +114,8 @@ instance MutableSpan (MutSpan s a) s a where
         _ <- memmove new src
         return new
 
-    calloc :: Int -> a -> ST s (MutSpan s a)
-    calloc (I# n) a = ST \s0 -> let
+    calloc# :: Int# -> a -> State# s -> (# State# s, MutSpan s a #)
+    calloc# n a s0 = let
         !(# s1, arr #) = newSmallArray# n a s0
      in
         (# s1, MutSpan 0# n (# | arr #) #)
