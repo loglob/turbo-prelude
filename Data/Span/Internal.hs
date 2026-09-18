@@ -209,9 +209,6 @@ class (MutableSpan dst s a, Span src) => Copyable dst s a src | dst -> src, dst 
     memcpy :: dst -> src -> ST s ()
     memcpy to fr = ST \s -> (# memcpy# to fr s, () #) 
 
-    -- | Copies the current contents of a mutable span into an equivalent immutable span
-    freezeCopy :: dst -> ST s src
-
     -- | Creates a mutable independent copy of an immutable span
     mutableCopy :: src -> ST s dst
     mutableCopy src = do
@@ -220,7 +217,24 @@ class (MutableSpan dst s a, Span src) => Copyable dst s a src | dst -> src, dst 
 
         return mut
 
-    {-# MINIMAL ((memcpy | memcpy#), freezeCopy) #-}
+    -- | Variant of `mutableCopy` that may directly re-use the storage underlying the input
+    --
+    --   Neither the input span NOR any other span that aliases the same array may be used again afterwards.
+    unsafeThaw :: src -> ST s dst
+    unsafeThaw = mutableCopy
+
+    -- | Copies the current contents of a mutable span into an equivalent immutable span
+    freezeCopy :: dst -> ST s src
+    freezeCopy buf = copy buf >>= unsafeFreeze
+
+    -- | Variant of `freezeCopy` that may directly re-use the storage underlying the mutable span
+    --
+    --   Neither the input span NOR any other span that aliases the same array may be used again afterwards.
+    unsafeFreeze :: dst -> ST s src
+    unsafeFreeze = freezeCopy
+
+
+    {-# MINIMAL ((memcpy | memcpy#), (unsafeFreeze | freezeCopy)) #-}
 
 -- * Util methods
 

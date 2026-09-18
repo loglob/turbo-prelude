@@ -8,7 +8,7 @@ module Data.Span.MutSpan (
 
 import Data.Span.Internal
 import GHC.Err (undefined)
-import GHC.Exts (copySmallMutableArray#, copyMutableArray#, sameMutableArray#, sameSmallMutableArray#, copyArray#, copySmallArray#, freezeArray#, freezeSmallArray#)
+import GHC.Exts (copySmallMutableArray#, copyMutableArray#, sameMutableArray#, sameSmallMutableArray#, copyArray#, copySmallArray#, freezeArray#, freezeSmallArray#, UnliftedRep)
 import Turbo.RootPrelude
 import GHC.Base (error)
 import qualified Data.Span.ArraySpan as A
@@ -19,6 +19,13 @@ samePtr :: GenMutArray# s a -> GenMutArray# s a -> Bool
 samePtr (# x | #) (# y | #) = isTrue# (sameMutableArray# x y)
 samePtr (# | x #) (# | y #) = isTrue# (sameSmallMutableArray# x y)
 samePtr _ _ = False
+
+either# :: forall (l :: TYPE UnliftedRep) (r :: TYPE UnliftedRep) yk (y :: TYPE yk). (l -> y) -> (r -> y) -> (# l | r #) -> y
+either# f _ (# l | #) = f l
+either# _ g (# | r #) = g r
+
+($>#) :: forall s (x :: TYPE UnliftedRep) (y :: TYPE UnliftedRep). (x -> y) -> (# State# s, x #) -> (# State# s, y #)
+f $># (# s, x #) = (# s, f x #)
 
 instance Span (MutSpan s a) where
     extends :: Int -> Int -> MutSpan s a -> MutSpan s a
@@ -67,11 +74,11 @@ instance MutableSpan (MutSpan s a) s a where
             (# | a #) -> writeSmallArray# a (i +# j) x s
 
     read# :: MutSpan s a -> Int# -> State# s -> (# State# s, a #)
-    read# (MutSpan i n g) j s 
+    read# (MutSpan i n g) j 
         | j `geq#` n = error "Index out of bounds"
         | otherwise  = case g of
-            (# a | #) -> readArray# a (i +# j) s
-            (# | a #) -> readSmallArray# a (i +# j) s
+            (# a | #) -> readArray# a (i +# j)
+            (# | a #) -> readSmallArray# a (i +# j)
 
     -- | Copies the contents of a mutable span into another mutable span
     --   $1 - Destination to copy into
@@ -148,3 +155,14 @@ instance Copyable (MutSpan s a) s a (ArraySpan a) where
             !(# s1, xs #) = freezeSmallArray# a i n s0
          in
             (# s1, A.fromSArray# xs #)
+
+    unsafeFreeze :: MutSpan s a -> ST s (ArraySpan a)
+    unsafeFreeze (MutSpan i n g) = ST \s0 -> case g of
+        (# xs | #) -> let
+            !(# s1, ys #) = unsafeFreezeArray# xs s0
+         in
+            (# s1, ArraySpan i n (# ys | #) #)
+        (# | xs #) -> let
+            !(# s1, ys #) = unsafeFreezeSmallArray# xs s0
+         in
+            (# s1, ArraySpan i n (# | ys #) #)

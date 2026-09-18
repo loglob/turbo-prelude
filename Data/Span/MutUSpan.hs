@@ -7,15 +7,19 @@ module Data.Span.MutUSpan (
     populate, populate#,
 ) where
 
-import Data.Span.Internal
-import Turbo.RootPrelude
-import GHC.Exts (copyMutableByteArray#, sameMutableByteArray#)
 import Data.Primitive (Prim(..), MutableByteArray(..))
-import Turbo.Operators ((<&))
+import Data.Span.Internal
+import Data.Span.USpan ()
 import GHC.Err (error)
+import GHC.Exts (copyMutableByteArray#, sameMutableByteArray#, copyByteArray#, UnliftedType, unsafeThawByteArray#)
+import Turbo.Operators ((<&))
+import Turbo.RootPrelude
 
 ptrEq :: MutableByteArray# s -> MutableByteArray# s -> Bool
 ptrEq xs ys = isTrue# (sameMutableByteArray# xs ys)
+
+st :: forall s (u :: UnliftedType) l. (u -> l) -> (State# s -> (# State# s, u #)) -> ST s l
+st f g = ST \s0 -> let !(# s1, u #) = g s0 in (# s1, f u #)
 
 instance Span (MutUSpan s a) where
     extends :: Int -> Int -> MutUSpan s a -> MutUSpan s a
@@ -84,6 +88,22 @@ instance Prim a => MutableSpan (MutUSpan s a) s a where
         !(# s1, buf #) = newByteArray# z s0 
      in
         (# s1, MutUSpan 0# n buf #)
+
+instance Prim a => Copyable (MutUSpan s a) s a (USpan a) where
+    memcpy# :: MutUSpan s a -> USpan a -> State# s -> State# s
+    memcpy# (MutUSpan i n dst) (USpan j m src) s0 = let
+        k = min# n m
+        z = k *# sizeOfType# (Proxy @a)
+        s1 = copyByteArray# src j dst i z s0
+     in
+        s1
+    
+    unsafeFreeze :: MutUSpan s a -> ST s (USpan a)
+    unsafeFreeze (MutUSpan i n xs) = USpan i n `st` unsafeFreezeByteArray# xs
+    
+    unsafeThaw :: USpan a -> ST s (MutUSpan s a)
+    unsafeThaw (USpan i n xs) = MutUSpan i n `st` unsafeThawByteArray# xs
+
 
 capacity# :: (Prim a) => Proxy a -> MutableByteArray# s -> State# s -> (# State# s, Int# #)
 capacity# p bs s0 = let
