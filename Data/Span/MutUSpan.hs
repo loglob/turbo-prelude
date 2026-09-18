@@ -9,7 +9,7 @@ module Data.Span.MutUSpan (
 
 import Data.Span.Internal
 import Turbo.RootPrelude
-import GHC.Exts (copyMutableByteArray#, sameMutableByteArray#, copyByteArray#, newPinnedByteArray#)
+import GHC.Exts (copyMutableByteArray#, sameMutableByteArray#)
 import Data.Primitive (Prim(..), MutableByteArray(..))
 import Turbo.Operators ((<&))
 import GHC.Err (error)
@@ -47,11 +47,7 @@ instance Span (MutUSpan s a) where
         (# _ | #) -> error "invalid slice index"
         (# | o #) -> MutUSpan o n xs
 
-instance StateBasedSpan MutUSpan where
-    baseSpanOffST :: MutUSpan x y -> ST x (MutUSpan x y, Int)
-    baseSpanOffST (MutUSpan o _ xs) = ST (fromBytes# xs) <& (I# o)
-
-instance MutableSpan MutUSpan where
+instance Prim a => MutableSpan (MutUSpan s a) s a where
     memmove# :: MutUSpan s a -> MutUSpan s a -> State# s -> (# State# s, Int# #)
     memmove# (MutUSpan i n dst) (MutUSpan j m src) s0 = let
         !z = min# n m
@@ -79,25 +75,33 @@ instance MutableSpan MutUSpan where
          in
             loop (inc# o) s2
     
-    copy :: MutUSpan x y -> ST x (MutUSpan x y)
+    copy :: MutUSpan s a -> ST s (MutUSpan s a)
     copy src@(MutUSpan _ _ _) = do
         tmp <- malloc (size src)
         _ <- memmove tmp src
         
         return tmp
 
-    calloc :: Int -> y -> ST x (MutUSpan x y)
-    calloc n y = do
+    calloc :: Int -> a -> ST s (MutUSpan s a)
+    calloc n a = do
         buf <- malloc n
-        populate buf \_ -> return y
+        populate buf \_ -> return a
         
         return buf
+    
+    baseSpanOffST :: MutUSpan s a -> ST s (MutUSpan s a, Int)
+    baseSpanOffST (MutUSpan o _ xs) = ST (fromBytes# xs) <& (I# o)
 
-malloc# :: Prim a => Int -> State# s -> (# State# s, MutUSpan s a #)
-malloc# = _
+
+malloc# :: forall s a. Prim a => Int# -> State# s -> (# State# s, MutUSpan s a #)
+malloc# n s0 = let
+    !z = n *# sizeOfType# (Proxy @a)
+    !(# s1, buf #) = newByteArray# z s0 
+ in
+    (# s1, MutUSpan 0# n buf #)
 
 malloc :: Prim a => Int -> ST s (MutUSpan s a)
-malloc = _
+malloc (I# n) = ST (malloc# n)
 
 capacity# :: (Prim a) => Proxy a -> MutableByteArray# s -> State# s -> (# State# s, Int# #)
 capacity# p bs s0 = let

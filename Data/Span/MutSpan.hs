@@ -58,23 +58,15 @@ instance Span (MutSpan s a) where
         (# _ | #) -> error "Slice indices out of bounds"
         (# | o #) -> MutSpan o n arr
 
-instance StateBasedSpan MutSpan where
-    baseSpanOffST (MutSpan o _ g) = ST \s0 -> let
-        !(# s1, z #) = case g of
-            (# a | #) -> (# s0, sizeofMutableArray# a #)
-            (# | a #) -> getSizeofSmallMutableArray# a s0
-     in
-        (# s1, (MutSpan 0# z g, I# o) #)
-
-instance MutableSpan MutSpan where
-    write# :: MutSpan s x -> Int# -> x -> State# s -> State# s
+instance MutableSpan (MutSpan s a) s a where
+    write# :: MutSpan s a -> Int# -> a -> State# s -> State# s
     write# (MutSpan i n g) j x s
         | j `geq#` n = error "Index out of bounds"
         | otherwise  = case g of
             (# a | #) -> writeArray# a (i +# j) x s
             (# | a #) -> writeSmallArray# a (i +# j) x s
 
-    read# :: MutSpan s x -> Int# -> State# s -> (# State# s, x #)
+    read# :: MutSpan s a -> Int# -> State# s -> (# State# s, a #)
     read# (MutSpan i n g) j s 
         | j `geq#` n = error "Index out of bounds"
         | otherwise  = case g of
@@ -84,7 +76,7 @@ instance MutableSpan MutSpan where
     -- | Copies the contents of a mutable span into another mutable span
     --   $1 - Destination to copy into
     --   $2 - Source to copy from
-    memmove# :: forall s x. MutSpan s x -> MutSpan s x -> State# s -> (# State# s, Int# #)
+    memmove# :: MutSpan s a -> MutSpan s a -> State# s -> (# State# s, Int# #)
     memmove# l@(MutSpan i n dst) r@(MutSpan j m src) = \s -> (# run s, z #) where
         !z = min# n m
 
@@ -114,7 +106,7 @@ instance MutableSpan MutSpan where
              in
                 s3
 
-    copy :: MutSpan s x -> ST s (MutSpan s x)
+    copy :: MutSpan s a -> ST s (MutSpan s a)
     copy src@(MutSpan _ n arr) = do
         new <- ST \s -> case arr of
             (# _ | #) -> let !(# s', arr' #) = newArray# n undefined s      in (# s', MutSpan 0# n (# arr' | #) #)
@@ -122,14 +114,21 @@ instance MutableSpan MutSpan where
         _ <- memmove new src
         return new
 
-    malloc :: Int -> x -> ST s (MutSpan s x)
-    malloc (I# n) x = ST \s0 -> let
-        !(# s1, arr #) = newSmallArray# n x s0
+    calloc :: Int -> a -> ST s (MutSpan s a)
+    calloc (I# n) a = ST \s0 -> let
+        !(# s1, arr #) = newSmallArray# n a s0
      in
         (# s1, MutSpan 0# n (# | arr #) #)
 
-instance Copyable MutSpan ArraySpan where    
-    
+    baseSpanOffST :: MutSpan s a -> ST s (MutSpan s a, Int)
+    baseSpanOffST (MutSpan o _ g) = ST \s0 -> let
+        !(# s1, z #) = case g of
+            (# a | #) -> (# s0, sizeofMutableArray# a #)
+            (# | a #) -> getSizeofSmallMutableArray# a s0
+     in
+        (# s1, (MutSpan 0# z g, I# o) #)
+
+instance Copyable (MutSpan s a) s a (ArraySpan a) where    
     memcpy :: MutSpan s a -> ArraySpan a -> ST s ()
     memcpy (MutSpan i n dst) r@(ArraySpan j m src) = let 
         !z = min# n m 
@@ -149,4 +148,3 @@ instance Copyable MutSpan ArraySpan where
             !(# s1, xs #) = freezeSmallArray# a i n s0
          in
             (# s1, A.fromSArray# xs #)
-

@@ -1,4 +1,3 @@
-{-# LANGUAGE QuantifiedConstraints #-}
 module Data.Span.Internal where
 import Data.Primitive
 import GHC.Base
@@ -45,49 +44,49 @@ data MutUSpan s a where
 {- | A collection type that permits comparing the underlying pointers,
  and creating 0-copy slices
 -}
-class Span s where
+class Span span where
     -- | Computes the smallest span that contains both input spans
     --   Returns `Nothing` if they are part of different base spans
-    bounds :: s -> s -> Maybe s
+    bounds :: span -> span -> Maybe span
 
     -- | Extends a span to the left and right by the given number.
     --   Partial if indices are out-of-bounds.
-    extends :: Int -> Int -> s -> s
+    extends :: Int -> Int -> span -> span
 
     -- | Undoes `slice`, returning its first arguments
-    isSliceOf :: s -> s -> Maybe Int
+    isSliceOf :: span -> span -> Maybe Int
 
     -- | Computes the largest span that is a slice of both given spans.
     --   Returns `Nothing` when they don't overlap.
     --   Returns an empty span if the spans are exactly next to another.
-    overlap :: s -> s -> Maybe s
+    overlap :: span -> span -> Maybe span
 
     -- | Compares the underlying pointers of two spans
     --   Returns `Nothing` if the spans point into different arrays,
     --   compares the starting address of the spans otherwise.
-    ptrCmp :: s -> s -> Maybe Ordering
+    ptrCmp :: span -> span -> Maybe Ordering
 
     -- | The length of a span
-    size :: s -> Int
+    size :: span -> Int
 
     -- | Creates a sub-span from an offset and a length
     --   Partial if indices are out of bounds
-    slice :: Int -> Int -> s -> s
+    slice :: Int -> Int -> span -> span
     slice n m = takes m . trims n 0
 
     -- | Like `slice`, but indexes from the end of the span rather than the start.
     --    Partial if indices are out of bounds.
     --
     --    (!) The last element is at index 1
-    sliceEnd :: Int -> Int -> s -> s
+    sliceEnd :: Int -> Int -> span -> span
     sliceEnd n m s = slice (size s - n) m s
 
     -- | Returns only the $1 leftmost elements of $2
-    takes :: Int -> s -> s
+    takes :: Int -> span -> span
     takes = slice 0
 
     -- | Trims the $1 leftmost and $2 rightmost elements of $3
-    trims :: Int -> Int -> s -> s
+    trims :: Int -> Int -> span -> span
     trims l r s =
         let z = size s
          in if l < 0 || r < 0 || l + r > z
@@ -96,21 +95,27 @@ class Span s where
 
     {-# MINIMAL (extends, bounds, isSliceOf, size, overlap, ptrCmp, (slice | (trims, takes))) #-}
 
-
-class (forall x y. Span (s x y)) => MutableSpan s where
-    read# :: s x y -> Int# -> State# x -> (# State# x, y #)
+-- | A span that may be mutated in-place
+class Span span => MutableSpan span s a | span -> s, span -> a where
+    read# :: span -> Int# -> State# s -> (# State# s, a #)
     read# xs i = doST (read xs (I# i))
 
-    read :: s x y -> Int -> ST x y
+    -- | Reads from the span at the given index
+    --
+    --   Partial if index is outside the span bounds
+    read :: span -> Int -> ST s a
     read xs (I# i) = ST (read# xs i)
 
-    write# :: s x y -> Int# -> y -> State# x -> State# x
-    write# xs i y = doST' (write xs (I# i) y)
+    write# :: span -> Int# -> a -> State# s -> State# s
+    write# xs i a = doST' (write xs (I# i) a)
 
-    write :: s x y -> Int -> y -> ST x ()
-    write xs (I# i) y = ST \s -> (# write# xs i y s, () #)
+    -- | Writes to the span at given index
+    --
+    --   Partial if index is outside the span bounds
+    write :: span -> Int -> a -> ST s ()
+    write xs (I# i) a = ST \s -> (# write# xs i a s, () #)
 
-    populate# :: s x y -> (Int# -> State# x -> (# State# x, y #)) -> State# x -> State# x
+    populate# :: span -> (Int# -> State# s -> (# State# s, a #)) -> State# s -> State# s
     populate# xs get = loop 0#
      where
         !(I# n) = size xs
@@ -121,42 +126,54 @@ class (forall x y. Span (s x y)) => MutableSpan s where
          in
             loop (inc# o) s2
 
-    populate :: s x y -> (Int -> ST x y) -> ST x ()
+    -- | Overwrites this entire span by mapping each position to a new value
+    populate :: span -> (Int -> ST s a) -> ST s ()
     populate xs f = ST \s -> (# populate# xs (\i s' -> let !(ST g) = f (I# i) in g s') s, () #)
 
-    memmove# :: s x y -> s x y -> State# x -> (# State# x, Int# #)
+    memmove# :: span -> span -> State# s -> (# State# s, Int# #)
     memmove# xs ys s = let !(# s', I# n #) = doST (memmove xs ys) s in (# s', n #)
 
-    memmove :: s x y -> s x y -> ST x Int 
+    -- | Copies from one span to another, or within the same span.
+    --   Safe for overlapping regions of the same span.
+    memmove :: span -> span -> ST s Int 
     memmove t f = ST \s -> let !(# s', z #) = memmove# t f s in (# s', I# z #)
 
-    -- | Creates an independent copy of the current state of a mutable span. Only copies the addressable region of the span, not its entire underlying storage.
-    copy :: s x y -> ST x (s x y)
+    -- | Creates an independent copy of the current state of a mutable span.
+    --   Only copies the addressable region of the span, not its entire underlying storage.
+    copy :: span -> ST s span
     copy src = do
         tmp <- calloc (size src) undefined
         _ <- memmove tmp src
 
         return tmp
 
-    calloc# :: Int# -> y -> State# x -> (# State# x, s x y #)
-    calloc# n y = doST (calloc (I# n) y)
+    calloc# :: Int# -> a -> State# s -> (# State# s, span #)
+    calloc# n a = doST (calloc (I# n) a)
 
-    calloc :: Int -> y -> ST x (s x y)
-    calloc (I# n) y = ST (calloc# n y)
+    -- Creates a new mutable span with the given size, filled with the given default value.
+    calloc :: Int -> a -> ST s span
+    calloc (I# n) a = ST (calloc# n a)
 
-    {-# MINIMAL ((read | read#), (write | write#), (memmove | memmove#), copy, (calloc | calloc#)) #-}
+    -- | `baseSpan` inside `ST` (all mutable spans are based)
+    baseSpanST :: span -> ST s span
+    baseSpanST x = fmap fst (baseSpanOffST x)
+
+    -- | `baseSpanOff` inside `ST`
+    baseSpanOffST :: span -> ST s (span, Int)
+
+    {-# MINIMAL ((read | read#), (write | write#), (memmove | memmove#), copy, (calloc | calloc#), baseSpanOffST) #-}
 
 
 -- *** BasedSpan
 
 -- | A span that can be traced back to the baseSpan that contains it
-class Span s => BasedSpan s where
+class Span span => BasedSpan span where
     -- | A span of the entire array the input span slices
-    baseSpan :: s -> s
+    baseSpan :: span -> span
     baseSpan = fst . baseSpanOff
 
     -- | Like `baseSpan` but also returns the starting offset of the input span
-    baseSpanOff :: s -> (s, Int)
+    baseSpanOff :: span -> (span, Int)
     baseSpanOff x =
         let
             b = baseSpan x
@@ -164,37 +181,27 @@ class Span s => BasedSpan s where
          in
             (b, o ?! error "Span violated slice law")
 
--- | Variant of `BasedSpan` that requires the ST monad to retrieve the baseSpan
-class (forall x y. Span (s x y)) => StateBasedSpan s where
-    -- | `baseSpan` inside `ST`
-    baseSpanST :: s x y -> ST x (s x y)
-    baseSpanST x = fmap fst (baseSpanOffST x)
-
-    -- | `baseSpanOff` inside `ST`
-    baseSpanOffST :: s x y -> ST x (s x y, Int)
-
--- *** Memcpy
+-- *** memcpy
 
 -- | Indicates that two span types (one mutable, one not) have compatible memory layout that allows for direct copying
-class (MutableSpan dst, forall a. Span (src a)) => Copyable dst src where
-    memcpy# :: dst s a -> src a -> State# s -> State# s
+class (MutableSpan dst s a, Span src) => Copyable dst s a src | dst -> src, dst -> s, dst -> a, src -> a where
+    memcpy# :: dst -> src -> State# s -> State# s
     memcpy# to fr = doST' (memcpy to fr)
 
     -- | Copies data from an immutable span into a mutable span
-    memcpy :: dst s a -> src a -> ST s ()
+    memcpy :: dst -> src -> ST s ()
     memcpy to fr = ST \s -> (# memcpy# to fr s, () #) 
 
     -- | Copies the current contents of a mutable span into an equivalent immutable span
-    freezeCopy :: dst s a -> ST s (src a)
+    freezeCopy :: dst -> ST s src
 
     -- | Creates a mutable independent copy of an immutable span
-    mutableCopy :: src a -> ST s (dst s a)
+    mutableCopy :: src -> ST s dst
     mutableCopy src = do
         mut <- calloc (size src) undefined
         memcpy mut src
 
         return mut
-
 
     {-# MINIMAL ((memcpy | memcpy#), freezeCopy) #-}
 
